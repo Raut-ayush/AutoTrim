@@ -5,78 +5,176 @@ import time
 from pathlib import Path
 
 from llm.ollama_provider import OllamaProvider
+from llm.gemini_provider import GeminiProvider
 
 
-DEFAULT_MODEL = "qwen2.5-coder:7b"
+AUTOTRIM_VERSION = "0.4"
+
+DEFAULT_OLLAMA_MODEL = "qwen2.5-coder:7b"
+DEFAULT_GEMINI_MODEL = "gemini-3.8-flash"
 
 
 SYSTEM_PROMPT = """
 You are the Content Intelligence engine of AutoTrim.
 
-Your job is to analyze a video transcript and convert it into a
-structured, fact-grounded Content Object.
+Your job is to analyze a video transcript and create a structured,
+fact-grounded Content Object that will later be used to generate:
+
+- X posts and threads
+- Reddit posts
+- Blog articles
+- Short-form video candidates
+- Captions
+- Other derivative content
 
 IMPORTANT RULES:
 
 1. Use ONLY information present in the supplied transcript and source metadata.
-2. Do not invent facts, names, claims, statistics, examples, or quotes.
+2. Do not invent facts, names, claims, statistics, examples, or events.
 3. Preserve the meaning of the original speaker.
-4. If something is unclear, do not guess.
-5. Extract useful structure that can later be used to create social posts,
-   Reddit posts, blog articles, and short-form videos.
+4. Do not add outside knowledge.
+5. If something is unclear, do not guess.
 6. Quotes MUST be exact text from the transcript.
 7. Timestamps MUST come from the supplied transcript.
-8. Return ONLY valid JSON.
-9. Do not use markdown code fences.
-10. Do not add explanations outside the JSON.
+8. Candidate segment timestamps must correspond to actual transcript segments.
+9. Do not create duplicate candidate segments unnecessarily.
+10. Prefer complete thoughts over arbitrary sentence fragments.
+11. Return ONLY valid JSON.
+12. Do not use markdown code fences.
+13. Do not add explanations outside JSON.
 
-Return exactly this structure:
+CONTENT ANALYSIS
+
+Identify:
+
+- The main topic
+- Important secondary topics
+- The most important points
+- Major claims or explanations made in the video
+- Useful sections
+- Exact important quotes
+- Relevant entities
+- Different possible content angles
+- Strong candidate clips for short-form content
+
+CANDIDATE SEGMENTS
+
+A candidate segment should:
+
+- Contain a meaningful and relatively self-contained idea.
+- Have a clear beginning and ending.
+- Be understandable with minimal context.
+- Have potential educational, surprising, interesting, useful, or entertaining value.
+- Preferably work as a standalone short-form clip.
+- Use timestamps from the transcript.
+- Prefer 15-60 seconds for short-form candidates.
+- Do not simply divide the whole video into large sections.
+- Find the strongest specific moments instead.
+
+Score each candidate from 0.0 to 1.0.
+
+Consider:
+
+- Hook strength
+- Information value
+- Standalone clarity
+- Curiosity
+- Shareability
+- Completeness
+
+CONTENT ANGLES
+
+Examples of angles include:
+
+- Educational explanation
+- Surprising fact
+- Common misconception
+- Question and answer
+- Story
+- Practical takeaway
+- Contrarian idea
+- Beginner explanation
+- Interesting analogy
+
+Only use angles that actually fit the transcript.
+
+Return EXACTLY this structure:
 
 {
-  "summary": "A concise factual summary of the entire video",
-  "main_topic": "The central topic of the video",
+  "summary": "...",
+  "main_topic": "...",
   "topics": [
-    "topic 1",
-    "topic 2"
+    "..."
   ],
   "key_points": [
-    "important point 1",
-    "important point 2"
+    "..."
+  ],
+  "claims": [
+    {
+      "claim": "...",
+      "supporting_text": "...",
+      "start": 0.0,
+      "end": 0.0
+    }
   ],
   "sections": [
     {
-      "title": "Section title",
-      "summary": "What this section discusses",
+      "title": "...",
+      "summary": "...",
       "start": 0.0,
-      "end": 10.0
+      "end": 0.0
     }
   ],
   "important_quotes": [
     {
-      "text": "Exact quote from transcript",
+      "text": "...",
       "start": 0.0,
-      "end": 5.0
+      "end": 0.0
     }
   ],
   "entities": [
     {
-      "name": "Entity name",
+      "name": "...",
       "type": "person|organization|place|technology|concept|other"
+    }
+  ],
+  "content_angles": [
+    {
+      "angle": "...",
+      "description": "...",
+      "best_for": [
+        "x",
+        "reddit",
+        "blog",
+        "short"
+      ]
+    }
+  ],
+  "candidate_segments": [
+    {
+      "start": 0.0,
+      "end": 0.0,
+      "title": "...",
+      "hook": "...",
+      "reason": "...",
+      "score": 0.0
     }
   ]
 }
 
 Timestamp rules:
 
-- Use timestamps from the transcript.
-- Section timestamps must correspond to the relevant transcript content.
-- Quote timestamps must correspond to the quoted words.
-- Never fabricate timestamps.
+- Use timestamps from the supplied transcript.
+- Do not invent timestamps.
+- Quote timestamps must correspond to the quoted transcript.
+- Candidate segment timestamps must cover actual transcript content.
+- The start and end of a candidate should normally align with transcript
+  segment boundaries.
 """
 
 
 def load_transcript(path: Path) -> dict:
-    """Load the transcript JSON file."""
+    """Load transcript JSON."""
 
     try:
         with path.open("r", encoding="utf-8") as f:
@@ -90,25 +188,20 @@ def load_transcript(path: Path) -> dict:
 
 
 def get_segments(data: dict) -> list:
-    """
-    Get WhisperX transcript segments.
+    """Get WhisperX transcript segments."""
 
-    AutoTrim transcript structure:
-
-    {
-        "source": {...},
-        "transcription": {
-            "segments": [...]
-        }
-    }
-    """
-
-    return data.get("transcription", {}).get("segments", [])
+    return data.get(
+        "transcription",
+        {}
+    ).get(
+        "segments",
+        []
+    )
 
 
 def build_transcript_text(data: dict) -> str:
     """
-    Build a timestamped transcript for the LLM.
+    Build timestamped transcript for the LLM.
     """
 
     lines = []
@@ -116,9 +209,21 @@ def build_transcript_text(data: dict) -> str:
     segments = get_segments(data)
 
     for segment in segments:
-        start = segment.get("start", 0)
-        end = segment.get("end", 0)
-        text = segment.get("text", "").strip()
+
+        start = segment.get(
+            "start",
+            0
+        )
+
+        end = segment.get(
+            "end",
+            0
+        )
+
+        text = segment.get(
+            "text",
+            ""
+        ).strip()
 
         if not text:
             continue
@@ -131,50 +236,138 @@ def build_transcript_text(data: dict) -> str:
 
 
 def build_prompt(data: dict) -> str:
-    """Build the LLM analysis prompt."""
+    """Build the content intelligence prompt."""
 
-    source = data.get("source", {})
+    source = data.get(
+        "source",
+        {}
+    )
 
-    title = source.get("title", "")
-    channel = source.get("channel", "")
-    duration = source.get("duration", "")
+    title = source.get(
+        "title",
+        ""
+    )
 
-    transcript = build_transcript_text(data)
+    channel = source.get(
+        "channel",
+        ""
+    )
+
+    duration = source.get(
+        "duration",
+        ""
+    )
+
+    video_type = source.get(
+        "video_type",
+        ""
+    )
+
+    transcript = build_transcript_text(
+        data
+    )
 
     return f"""
-Analyze the following video transcript.
+Analyze the following video.
 
 SOURCE METADATA
+--------------------------------------------------
+
 Title: {title}
 Channel: {channel}
 Duration: {duration} seconds
+Video type: {video_type}
 
-TRANSCRIPT
 --------------------------------------------------
+
+TIMESTAMPED TRANSCRIPT
+--------------------------------------------------
+
 {transcript}
+
 --------------------------------------------------
 
-Create the requested AutoTrim Content Object.
+Create the AutoTrim Content Object.
 
-Remember:
-- Stay strictly grounded in the transcript.
-- Do not invent information.
-- Use exact transcript text for quotes.
-- Use the supplied timestamps.
+Focus on understanding the actual content rather than simply
+rewriting the transcript.
+
+For candidate_segments:
+
+- Find the strongest specific moments.
+- Prefer complete ideas.
+- Prefer approximately 15-60 second clips when possible.
+- Do NOT simply split the video into large sections.
+- A candidate should have a clear hook or useful takeaway.
+- Candidate timestamps should align with actual transcript segment
+  boundaries.
+
+For claims, only include claims or explanations actually made
+in the transcript.
+
+For important_quotes, copy the transcript wording exactly.
+
+Return ONLY valid JSON.
 """
 
 
+def clean_json_response(response: str) -> str:
+    """
+    Clean common formatting added by LLMs before JSON parsing.
+
+    Handles:
+
+        ```json
+        {...}
+        ```
+
+    as well as accidental surrounding text.
+    """
+
+    response = response.strip()
+
+    if not response:
+        return response
+
+    # Remove Markdown code fences.
+    if response.startswith("```"):
+
+        lines = response.splitlines()
+
+        if lines and lines[0].strip().startswith("```"):
+            lines = lines[1:]
+
+        if lines and lines[-1].strip() == "```":
+            lines = lines[:-1]
+
+        response = "\n".join(lines).strip()
+
+    # Recover JSON object if model added text around it.
+    if not response.startswith("{"):
+
+        start = response.find("{")
+        end = response.rfind("}")
+
+        if start != -1 and end != -1 and end > start:
+            response = response[start:end + 1]
+
+    return response.strip()
+
+
 def validate_content_object(content: dict):
-    """Validate the structure returned by the LLM."""
+    """Validate required Content Object structure."""
 
     required_fields = [
         "summary",
         "main_topic",
         "topics",
         "key_points",
+        "claims",
         "sections",
         "important_quotes",
         "entities",
+        "content_angles",
+        "candidate_segments",
     ]
 
     missing = [
@@ -189,103 +382,180 @@ def validate_content_object(content: dict):
             + ", ".join(missing)
         )
 
-    if not isinstance(content["topics"], list):
-        raise ValueError("'topics' must be a list")
+    list_fields = [
+        "topics",
+        "key_points",
+        "claims",
+        "sections",
+        "important_quotes",
+        "entities",
+        "content_angles",
+        "candidate_segments",
+    ]
 
-    if not isinstance(content["key_points"], list):
-        raise ValueError("'key_points' must be a list")
+    for field in list_fields:
 
-    if not isinstance(content["sections"], list):
-        raise ValueError("'sections' must be a list")
-
-    if not isinstance(content["important_quotes"], list):
-        raise ValueError("'important_quotes' must be a list")
-
-    if not isinstance(content["entities"], list):
-        raise ValueError("'entities' must be a list")
+        if not isinstance(
+            content[field],
+            list
+        ):
+            raise ValueError(
+                f"'{field}' must be a list"
+            )
 
 
 def save_content_object(
     output_path: Path,
     content: dict,
     transcript_data: dict,
+    provider_name: str,
     model: str,
     generation_time: float,
 ):
-    """Save the final Content Object."""
+    """Save Content Object."""
 
     output = {
-        "autotrim_version": "0.2",
+        "autotrim_version": AUTOTRIM_VERSION,
 
         "generated_by": {
-            "provider": "ollama",
+            "provider": provider_name,
             "model": model,
         },
 
-        "source": transcript_data.get("source", {}),
+        "source": transcript_data.get(
+            "source",
+            {}
+        ),
 
         "content": content,
 
         "processing": {
             "generation_time_seconds": round(
                 generation_time,
-                3,
+                3
             )
-        },
+        }
     }
 
     output_path.parent.mkdir(
         parents=True,
-        exist_ok=True,
+        exist_ok=True
     )
 
     with output_path.open(
         "w",
-        encoding="utf-8",
+        encoding="utf-8"
     ) as f:
 
         json.dump(
             output,
             f,
             indent=2,
-            ensure_ascii=False,
+            ensure_ascii=False
         )
+
+
+def create_provider(
+    provider_name: str,
+    model: str | None,
+):
+    """
+    Create the selected LLM provider.
+    """
+
+    if provider_name == "ollama":
+
+        selected_model = (
+            model
+            if model
+            else DEFAULT_OLLAMA_MODEL
+        )
+
+        return OllamaProvider(
+            model=selected_model
+        )
+
+    if provider_name == "gemini":
+
+        selected_model = (
+            model
+            if model
+            else DEFAULT_GEMINI_MODEL
+        )
+
+        return GeminiProvider(
+            model=selected_model
+        )
+
+    raise ValueError(
+        f"Unsupported provider: {provider_name}"
+    )
+
+
+def get_output_path(
+    transcript_path: Path,
+    provider_name: str,
+    custom_output: str | None,
+) -> Path:
+
+    if custom_output:
+        return Path(custom_output)
+
+    return (
+        transcript_path.parent
+        / f"content_{provider_name}.json"
+    )
 
 
 def main():
 
     parser = argparse.ArgumentParser(
         description=(
-            "AutoTrim Phase 2 - "
-            "Transcript to Content Object"
+            "AutoTrim - Content Intelligence"
         )
     )
 
     parser.add_argument(
         "transcript",
-        help="Path to transcript.json",
+        help="Path to transcript.json"
+    )
+
+    parser.add_argument(
+        "--provider",
+        choices=[
+            "ollama",
+            "gemini"
+        ],
+        default="ollama",
+        help=(
+            "LLM provider "
+            "(default: ollama)"
+        )
     )
 
     parser.add_argument(
         "--model",
-        default=DEFAULT_MODEL,
+        default=None,
         help=(
-            "Ollama model "
-            f"(default: {DEFAULT_MODEL})"
-        ),
+            "Override the default model "
+            "for the selected provider"
+        )
     )
 
     parser.add_argument(
         "--output",
         help=(
             "Output content.json path. "
-            "Defaults to the transcript directory."
-        ),
+            "Defaults to content_<provider>.json "
+            "in the transcript directory."
+        )
     )
 
     args = parser.parse_args()
 
-    transcript_path = Path(args.transcript)
+    transcript_path = Path(
+        args.transcript
+    )
 
     # ---------------------------------------------------------
     # Validate input
@@ -310,19 +580,32 @@ def main():
         sys.exit(1)
 
     # ---------------------------------------------------------
-    # Output path
+    # Provider
     # ---------------------------------------------------------
 
-    if args.output:
+    try:
 
-        output_path = Path(args.output)
-
-    else:
-
-        output_path = (
-            transcript_path.parent
-            / "content.json"
+        provider = create_provider(
+            args.provider,
+            args.model
         )
+
+    except Exception as e:
+
+        print(
+            f"ERROR: Could not initialize "
+            f"{args.provider}: {e}"
+        )
+
+        sys.exit(1)
+
+    model_name = provider.model
+
+    output_path = get_output_path(
+        transcript_path,
+        args.provider,
+        args.output
+    )
 
     # ---------------------------------------------------------
     # Header
@@ -337,7 +620,11 @@ def main():
     )
 
     print(
-        f"Model      : {args.model}"
+        f"Provider   : {args.provider}"
+    )
+
+    print(
+        f"Model      : {model_name}"
     )
 
     print(
@@ -345,10 +632,12 @@ def main():
     )
 
     # ---------------------------------------------------------
-    # Step 1 - Load transcript
+    # Load transcript
     # ---------------------------------------------------------
 
-    print("\n[1/3] Loading transcript...")
+    print(
+        "\n[1/3] Loading transcript..."
+    )
 
     try:
 
@@ -358,7 +647,10 @@ def main():
 
     except ValueError as e:
 
-        print(f"ERROR: {e}")
+        print(
+            f"ERROR: {e}"
+        )
+
         sys.exit(1)
 
     segments = get_segments(
@@ -404,26 +696,37 @@ def main():
     )
 
     # ---------------------------------------------------------
-    # Step 2 - Ollama
+    # Connection
     # ---------------------------------------------------------
 
-    print("\n[2/3] Analyzing with Ollama...")
-
-    ollama = OllamaProvider(
-        model=args.model
+    print(
+        f"\n[2/3] Analyzing with "
+        f"{args.provider.capitalize()}..."
     )
 
-    if not ollama.check_connection():
+    if args.provider == "ollama":
+
+        if not provider.check_connection():
+
+            print(
+                "ERROR: Ollama is not running."
+            )
+
+            print(
+                "Start Ollama and try again."
+            )
+
+            sys.exit(1)
+
+    else:
 
         print(
-            "ERROR: Ollama is not running."
+            "Gemini API key loaded."
         )
 
-        print(
-            "Start Ollama and try again."
-        )
-
-        sys.exit(1)
+    # ---------------------------------------------------------
+    # Generate
+    # ---------------------------------------------------------
 
     prompt = build_prompt(
         transcript_data
@@ -433,16 +736,17 @@ def main():
 
     try:
 
-        result = ollama.generate(
+        result = provider.generate(
             prompt=prompt,
             system=SYSTEM_PROMPT,
-            temperature=0.1,
+            temperature=0.1
         )
 
     except Exception as e:
 
         print(
-            f"ERROR: Ollama generation failed: {e}"
+            f"ERROR: {args.provider.capitalize()} "
+            f"generation failed: {e}"
         )
 
         sys.exit(1)
@@ -452,21 +756,24 @@ def main():
         - start_time
     )
 
-    raw_response = result.get(
-        "response",
-        ""
-    ).strip()
+    raw_response = clean_json_response(
+        result.get(
+            "response",
+            ""
+        )
+    )
 
     if not raw_response:
 
         print(
-            "ERROR: Ollama returned an empty response."
+            f"ERROR: {args.provider.capitalize()} "
+            f"returned an empty response."
         )
 
         sys.exit(1)
 
     # ---------------------------------------------------------
-    # Step 3 - Parse and validate
+    # Parse JSON
     # ---------------------------------------------------------
 
     print(
@@ -482,20 +789,27 @@ def main():
     except json.JSONDecodeError as e:
 
         print(
-            "ERROR: Ollama did not return valid JSON."
+            f"ERROR: {args.provider.capitalize()} "
+            f"did not return valid JSON."
         )
 
         print(
-            "\nRaw response:"
+            "\nCleaned response:"
         )
 
-        print(raw_response)
+        print(
+            raw_response
+        )
 
         print(
             f"\nJSON error: {e}"
         )
 
         sys.exit(1)
+
+    # ---------------------------------------------------------
+    # Validate
+    # ---------------------------------------------------------
 
     try:
 
@@ -521,8 +835,9 @@ def main():
             output_path=output_path,
             content=content,
             transcript_data=transcript_data,
-            model=args.model,
-            generation_time=generation_time,
+            provider_name=args.provider,
+            model=model_name,
+            generation_time=generation_time
         )
 
     except OSError as e:
@@ -542,42 +857,67 @@ def main():
     )
 
     print(
-        f"Output            : {output_path}"
+        f"Output             : {output_path}"
     )
 
     print(
-        f"Generation time   : "
+        f"Provider           : {args.provider}"
+    )
+
+    print(
+        f"Model              : {model_name}"
+    )
+
+    print(
+        f"Generation time    : "
         f"{generation_time:.2f}s"
     )
 
     print(
-        f"Topics            : "
+        f"Topics             : "
         f"{len(content['topics'])}"
     )
 
     print(
-        f"Key points        : "
+        f"Key points         : "
         f"{len(content['key_points'])}"
     )
 
     print(
-        f"Sections          : "
+        f"Claims             : "
+        f"{len(content['claims'])}"
+    )
+
+    print(
+        f"Sections           : "
         f"{len(content['sections'])}"
     )
 
     print(
-        f"Important quotes  : "
+        f"Important quotes   : "
         f"{len(content['important_quotes'])}"
     )
 
     print(
-        f"Entities          : "
+        f"Entities           : "
         f"{len(content['entities'])}"
     )
 
     print(
-        "\nOllama model unload requested."
+        f"Content angles     : "
+        f"{len(content['content_angles'])}"
     )
+
+    print(
+        f"Candidate segments : "
+        f"{len(content['candidate_segments'])}"
+    )
+
+    if args.provider == "ollama":
+
+        print(
+            "\nOllama model unload requested."
+        )
 
     print("=" * 60)
 
