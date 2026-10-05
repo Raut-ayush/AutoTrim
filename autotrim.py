@@ -22,7 +22,7 @@ Pipeline:
         ↓
     X thread
     Reddit post
-    Blog article
+    Substack post
 
 The pipeline is resumable:
 - Existing transcription is not repeated.
@@ -362,7 +362,7 @@ def find_existing_content(
     required_files = [
         content_dir / "x_thread.md",
         content_dir / "reddit_post.md",
-        content_dir / "blog_post.md",
+        content_dir / "substack_post.md",
         content_dir / "repurposed.json",
     ]
 
@@ -706,9 +706,9 @@ def main():
         "reddit_post.md"
     )
 
-    blog_path = (
+    substack_path = (
         existing_content /
-        "blog_post.md"
+        "substack_post.md"
     )
 
     json_path = (
@@ -746,8 +746,8 @@ def main():
     )
 
     print(
-        f"Blog Article    : "
-        f"{blog_path}"
+        f"Substack Post    : "
+        f"{substack_path}"
     )
 
     print(
