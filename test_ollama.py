@@ -1,7 +1,8 @@
 from llm.ollama_provider import OllamaProvider
+from config import OLLAMA_MODEL
 
 
-MODEL = "qwen2.5-coder:7b"
+MODEL = OLLAMA_MODEL
 
 
 def main():

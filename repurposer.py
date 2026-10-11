@@ -24,6 +24,7 @@ Optional:
 
 import argparse
 import json
+import os
 import re
 import time
 from pathlib import Path
@@ -33,14 +34,23 @@ from google import genai
 from google.genai import types
 from pydantic import BaseModel, Field
 
+from config import (
+    GEMINI_API_KEY_ENV,
+    GEMINI_MODEL,
+    PROJECT_ROOT,
+    REPURPOSER_MAX_RETRIES,
+    REPURPOSER_TEMPERATURE,
+)
+from errors import ConfigurationError, ExitCode, ServiceError
+
 
 # ============================================================
 # Configuration
 # ============================================================
 
-load_dotenv()
+load_dotenv(PROJECT_ROOT / ".env")
 
-DEFAULT_MODEL = "gemini-3.8-flash"
+DEFAULT_MODEL = GEMINI_MODEL
 
 # Rough estimate only.
 # Actual tokenization depends on the model/tokenizer.
@@ -660,6 +670,11 @@ def create_client() -> genai.Client:
     Create Gemini client using GEMINI_API_KEY from .env.
     """
 
+    if not os.getenv(GEMINI_API_KEY_ENV):
+        raise ConfigurationError(
+            f"{GEMINI_API_KEY_ENV} is not set. Add it to {PROJECT_ROOT / '.env'} "
+            "or set it in your environment."
+        )
     return genai.Client()
 
 
@@ -890,7 +905,7 @@ def save_json(
 def generate_content(
     transcript: str,
     model: str,
-    max_retries: int = 5
+    max_retries: int = REPURPOSER_MAX_RETRIES
 ) -> RepurposedContent:
     """
     Generate all platform content using ONE Gemini request.
@@ -925,7 +940,7 @@ def generate_content(
                     system_instruction=SYSTEM_PROMPT,
                     response_mime_type="application/json",
                     response_schema=RepurposedContent,
-                    temperature=0.3,
+                    temperature=REPURPOSER_TEMPERATURE,
                 ),
             )
 
@@ -1006,7 +1021,7 @@ def generate_content(
 
                 time.sleep(wait_time)
 
-    raise RuntimeError(
+    raise ServiceError(
         "Gemini generation failed: "
         f"{last_error}"
     )
@@ -1266,9 +1281,8 @@ def main():
 
     except KeyboardInterrupt:
 
-        print(
-            "\nCancelled by user."
-        )
+        print("\nCancelled by user.")
+        raise SystemExit(ExitCode.INTERRUPTED)
 
     except Exception as exc:
 
@@ -1277,7 +1291,8 @@ def main():
             f"ERROR: {exc}"
         )
 
-        raise SystemExit(1)
+        code = exc.exit_code if hasattr(exc, "exit_code") else ExitCode.PROCESSING
+        raise SystemExit(code)
 
 
 # ============================================================

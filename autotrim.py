@@ -4,22 +4,22 @@ AutoTrim - Resumable Video-to-Content Pipeline
 Pipeline:
 
     Video URL
-        ↓
-    Existing transcript? ── YES ──→ Reuse
-        │
+        â†“
+    Existing transcript? â”€â”€ YES â”€â”€â†’ Reuse
+        â”‚
         NO
-        ↓
+        â†“
     WhisperX transcription
-        ↓
+        â†“
     transcript.json
     transcript.txt
-        ↓
-    Existing content? ── YES ──→ Reuse
-        │
+        â†“
+    Existing content? â”€â”€ YES â”€â”€â†’ Reuse
+        â”‚
         NO
-        ↓
+        â†“
     Gemini Repurposer
-        ↓
+        â†“
     X thread
     Reddit post
     Substack post
@@ -32,11 +32,24 @@ The pipeline is resumable:
 
 import argparse
 import json
+import os
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
 from urllib.parse import urlparse
+
+from dotenv import load_dotenv
+
+from config import (
+    GEMINI_API_KEY_ENV,
+    GEMINI_MODEL,
+    OUTPUT_DIR,
+    TRANSCRIPTION_BATCH_SIZE,
+    TRANSCRIPTION_MODEL,
+)
+from errors import ExitCode
 
 
 AUTOTRIM_VERSION = "0.3"
@@ -407,22 +420,21 @@ def main():
         "--model",
         default=None,
         help=(
-            "Optional Gemini model override "
-            "(default: gemini-3.8-flash)"
+            f"Optional Gemini model override (default: {GEMINI_MODEL})"
         )
     )
 
     parser.add_argument(
         "--transcription-model",
-        default="small",
-        help="WhisperX model (default: small)"
+        default=TRANSCRIPTION_MODEL,
+        help=f"WhisperX model (default: {TRANSCRIPTION_MODEL})"
     )
 
     parser.add_argument(
         "--batch-size",
         type=int,
-        default=4,
-        help="WhisperX batch size (default: 4)"
+        default=TRANSCRIPTION_BATCH_SIZE,
+        help=f"WhisperX batch size (default: {TRANSCRIPTION_BATCH_SIZE})"
     )
 
     args = parser.parse_args()
@@ -431,10 +443,7 @@ def main():
 
     python_executable = sys.executable
 
-    output_dir = (
-        project_dir /
-        "output"
-    )
+    output_dir = OUTPUT_DIR
 
     output_dir.mkdir(
         parents=True,
@@ -534,7 +543,7 @@ def main():
 
         print()
         print(
-            "✓ Existing transcript found."
+            "âœ“ Existing transcript found."
         )
 
         print(
@@ -555,6 +564,13 @@ def main():
         # ----------------------------------------------------
         # Run transcription
         # ----------------------------------------------------
+
+        if shutil.which("ffmpeg") is None:
+            print(
+                "ERROR: FFmpeg was not found. Install FFmpeg and add its "
+                "bin directory to PATH before transcribing."
+            )
+            return ExitCode.DEPENDENCY
 
         transcription_command = [
             python_executable,
@@ -593,7 +609,7 @@ def main():
                 "was found after transcription."
             )
 
-            sys.exit(1)
+            sys.exit(ExitCode.PROCESSING)
 
         if transcript_txt is None:
 
@@ -603,7 +619,7 @@ def main():
                 "after transcription."
             )
 
-            sys.exit(1)
+            sys.exit(ExitCode.PROCESSING)
 
         print()
         print(
@@ -646,7 +662,7 @@ def main():
 
         print()
         print(
-            "✓ Existing repurposed content found."
+            "âœ“ Existing repurposed content found."
         )
 
         print(
@@ -663,6 +679,14 @@ def main():
         # ----------------------------------------------------
         # Run repurposer
         # ----------------------------------------------------
+
+        load_dotenv(project_dir / ".env")
+        if not os.getenv(GEMINI_API_KEY_ENV):
+            print(
+                f"ERROR: {GEMINI_API_KEY_ENV} is not set. Add it to "
+                f"{project_dir / '.env'} or your environment before generating."
+            )
+            return ExitCode.CONFIGURATION
 
         repurposer_command = [
             python_executable,
@@ -773,4 +797,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main() or ExitCode.SUCCESS)

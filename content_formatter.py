@@ -6,12 +6,14 @@ from pathlib import Path
 
 from llm.ollama_provider import OllamaProvider
 from llm.gemini_provider import GeminiProvider
+from config import CONTENT_FORMATTER_TEMPERATURE, GEMINI_MODEL, OLLAMA_MODEL
+from errors import ExitCode
 
 
 AUTOTRIM_VERSION = "0.4"
 
-DEFAULT_OLLAMA_MODEL = "qwen2.5-coder:7b"
-DEFAULT_GEMINI_MODEL = "gemini-3.8-flash"
+DEFAULT_OLLAMA_MODEL = OLLAMA_MODEL
+DEFAULT_GEMINI_MODEL = GEMINI_MODEL
 
 
 SYSTEM_PROMPT = """
@@ -568,7 +570,7 @@ def main():
             f"{transcript_path}"
         )
 
-        sys.exit(1)
+        sys.exit(ExitCode.PROCESSING)
 
     if not transcript_path.is_file():
 
@@ -577,7 +579,7 @@ def main():
             f"{transcript_path}"
         )
 
-        sys.exit(1)
+        sys.exit(ExitCode.PROCESSING)
 
     # ---------------------------------------------------------
     # Provider
@@ -597,7 +599,7 @@ def main():
             f"{args.provider}: {e}"
         )
 
-        sys.exit(1)
+        sys.exit(getattr(e, "exit_code", ExitCode.PROCESSING))
 
     model_name = provider.model
 
@@ -651,7 +653,7 @@ def main():
             f"ERROR: {e}"
         )
 
-        sys.exit(1)
+        sys.exit(ExitCode.PROCESSING)
 
     segments = get_segments(
         transcript_data
@@ -672,7 +674,7 @@ def main():
             "transcription -> segments -> [...]"
         )
 
-        sys.exit(1)
+        sys.exit(ExitCode.PROCESSING)
 
     transcript_text = build_transcript_text(
         transcript_data
@@ -685,7 +687,7 @@ def main():
             "but contain no text."
         )
 
-        sys.exit(1)
+        sys.exit(ExitCode.PROCESSING)
 
     print(
         f"Segments   : {len(segments)}"
@@ -716,7 +718,7 @@ def main():
                 "Start Ollama and try again."
             )
 
-            sys.exit(1)
+            sys.exit(ExitCode.SERVICE)
 
     else:
 
@@ -739,7 +741,7 @@ def main():
         result = provider.generate(
             prompt=prompt,
             system=SYSTEM_PROMPT,
-            temperature=0.1
+            temperature=CONTENT_FORMATTER_TEMPERATURE
         )
 
     except Exception as e:
@@ -749,7 +751,7 @@ def main():
             f"generation failed: {e}"
         )
 
-        sys.exit(1)
+        sys.exit(getattr(e, "exit_code", ExitCode.SERVICE))
 
     generation_time = (
         time.perf_counter()
@@ -770,7 +772,7 @@ def main():
             f"returned an empty response."
         )
 
-        sys.exit(1)
+        sys.exit(ExitCode.PROCESSING)
 
     # ---------------------------------------------------------
     # Parse JSON
@@ -805,7 +807,7 @@ def main():
             f"\nJSON error: {e}"
         )
 
-        sys.exit(1)
+        sys.exit(ExitCode.PROCESSING)
 
     # ---------------------------------------------------------
     # Validate
@@ -823,7 +825,7 @@ def main():
             f"ERROR: Invalid Content Object: {e}"
         )
 
-        sys.exit(1)
+        sys.exit(ExitCode.PROCESSING)
 
     # ---------------------------------------------------------
     # Save
@@ -846,7 +848,7 @@ def main():
             f"ERROR: Could not save output: {e}"
         )
 
-        sys.exit(1)
+        sys.exit(ExitCode.PROCESSING)
 
     # ---------------------------------------------------------
     # Summary

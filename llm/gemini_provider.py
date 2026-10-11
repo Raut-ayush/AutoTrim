@@ -5,9 +5,18 @@ from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 
+from config import (
+    GEMINI_API_KEY_ENV,
+    GEMINI_MAX_RETRIES,
+    GEMINI_MODEL,
+    GENERATION_TEMPERATURE,
+    PROJECT_ROOT,
+)
+from errors import ConfigurationError, ServiceError
+
 
 # Load .env from project root
-load_dotenv()
+load_dotenv(PROJECT_ROOT / ".env")
 
 
 class GeminiProvider:
@@ -19,17 +28,18 @@ class GeminiProvider:
 
     def __init__(
         self,
-        model="gemini-3.8-flash",
-        max_retries=4,
+        model=GEMINI_MODEL,
+        max_retries=GEMINI_MAX_RETRIES,
     ):
         self.model = model
         self.max_retries = max_retries
 
-        api_key = os.getenv("GEMINI_API_KEY")
+        api_key = os.getenv(GEMINI_API_KEY_ENV)
 
         if not api_key:
-            raise RuntimeError(
-                "GEMINI_API_KEY environment variable is not set."
+            raise ConfigurationError(
+                f"{GEMINI_API_KEY_ENV} is not set. Add it to "
+                f"{PROJECT_ROOT / '.env'} or your environment."
             )
 
         self.client = genai.Client(api_key=api_key)
@@ -38,7 +48,7 @@ class GeminiProvider:
         self,
         prompt,
         system=None,
-        temperature=0.2,
+        temperature=GENERATION_TEMPERATURE,
     ):
         """
         Generate a response using Gemini.
@@ -98,7 +108,7 @@ class GeminiProvider:
                     raise
 
                 if attempt >= self.max_retries:
-                    raise RuntimeError(
+                    raise ServiceError(
                         f"Gemini request failed after "
                         f"{self.max_retries + 1} attempts.\n"
                         f"Last error: {last_error}"

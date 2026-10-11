@@ -4,6 +4,7 @@ import logging
 import os
 import platform
 import re
+import shutil
 import sys
 import time
 from datetime import datetime
@@ -14,6 +15,16 @@ import torch
 import whisperx
 from yt_dlp import YoutubeDL
 
+from config import (
+    BENCHMARK_DIR,
+    LOG_DIR,
+    OUTPUT_DIR,
+    SUPPORTED_TRANSCRIPTION_MODELS,
+    TRANSCRIPTION_BATCH_SIZE,
+    TRANSCRIPTION_MODEL,
+)
+from errors import ExitCode
+
 
 # ============================================================
 # AUTOTRIM CONFIGURATION
@@ -21,21 +32,10 @@ from yt_dlp import YoutubeDL
 
 AUTOTRIM_VERSION = "0.2"
 
-DEFAULT_MODEL = "small"
-DEFAULT_BATCH_SIZE = 4
-
-BASE_OUTPUT_DIR = Path("output")
-LOG_DIR = Path("logs")
-BENCHMARK_DIR = Path("benchmark")
-
-SUPPORTED_MODELS = {
-    "tiny",
-    "base",
-    "small",
-    "medium",
-    "large-v2",
-    "large-v3",
-}
+DEFAULT_MODEL = TRANSCRIPTION_MODEL
+DEFAULT_BATCH_SIZE = TRANSCRIPTION_BATCH_SIZE
+BASE_OUTPUT_DIR = OUTPUT_DIR
+SUPPORTED_MODELS = SUPPORTED_TRANSCRIPTION_MODELS
 
 
 # ============================================================
@@ -898,6 +898,13 @@ def main():
 
     args = parser.parse_args()
 
+    if shutil.which("ffmpeg") is None:
+        print(
+            "ERROR: FFmpeg was not found. Install FFmpeg and make sure its "
+            "bin directory is on PATH, then open a new terminal."
+        )
+        return ExitCode.DEPENDENCY
+
     # --------------------------------------------------------
     # RUN IDENTIFICATION
     # --------------------------------------------------------
@@ -1575,7 +1582,7 @@ def main():
             f"Detailed log: {log_file}"
         )
 
-        return 1
+        return ExitCode.PROCESSING
 
 
 if __name__ == "__main__":

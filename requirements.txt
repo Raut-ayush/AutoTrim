@@ -1,0 +1,10 @@
+# Direct runtime dependencies pinned from the project's Python 3.13 environment.
+# Install the matching PyTorch CPU or CUDA wheels before this file; see README.md.
+whisperx==3.8.6
+yt-dlp==2026.8.19
+torch==2.8.0
+torchaudio==2.8.0
+psutil==7.2.2
+google-genai==2.28.0
+python-dotenv==1.2.4
+pydantic==2.13.5

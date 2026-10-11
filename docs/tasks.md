@@ -1,0 +1,21 @@
+# Tasks
+
+- [x] Add a reproducible Python dependency manifest (requirements.txt or pyproject.toml)
+- [x] Document installation prerequisites, including ffmpeg, CUDA/CPU expectations, and API key setup
+- [ ] Add smoke tests for URL parsing, transcript reuse detection, and output generation
+- [ ] Add validation tests for transcript JSON structure and repurposed content schema
+- [x] Improve environment validation for missing API keys and missing ffmpeg; model download failures report through the failed transcription step and log
+- [x] Add a central config module for default model settings and output directories
+- [x] Standardize CLI exit codes and improve startup/provider error messages
+- [ ] Further harden recovery for interrupted downloads and partial outputs
+- [ ] Improve retry logic and rate-limit handling for Gemini and Ollama requests
+- [ ] Add stronger transcript quality checks before repurposing runs
+- [ ] Add a quality pass for generated content to detect unsupported claims or formatting drift
+- [ ] Standardize versioning and release metadata across the project
+- [ ] Add a cleaner CLI UX with better status reporting and example commands
+- [ ] Consider packaging the project as a small installable tool or package
+- [ ] Consider adding optional support for more output formats beyond X/Reddit/Substack
+- [ ] Evaluate whether `content_formatter.py` should be integrated more deeply into the main pipeline
+- [ ] Review duplicate-folder handling and transcript reuse logic for edge cases
+- [ ] Document and verify the expected output directory structure for users
+- [ ] Add a changelog policy so product changes are tracked more systematically

@@ -3,6 +3,8 @@ import time
 import urllib.request
 import urllib.error
 
+from config import OLLAMA_HOST, OLLAMA_MODEL
+
 
 class OllamaProvider:
     """
@@ -14,8 +16,8 @@ class OllamaProvider:
 
     def __init__(
         self,
-        model="qwen2.5-coder:7b",
-        host="http://localhost:11434",
+        model=OLLAMA_MODEL,
+        host=OLLAMA_HOST,
     ):
         self.model = model
         self.host = host.rstrip("/")
