@@ -57,7 +57,13 @@ function shortLabel(job) {
 }
 
 function initSettings(settings) {
-  if (!settings || state.settings) return;
+  if (!settings) return;
+  const keyConfigured = Boolean(settings.gemini_api_key_configured);
+  const keyStatus = $("#gemini-key-status");
+  keyStatus.textContent = keyConfigured ? "Configured" : "Not configured";
+  keyStatus.dataset.configured = String(keyConfigured);
+  $("#remove-gemini-key").hidden = !keyConfigured;
+  if (state.settings) return;
   state.settings = settings;
   const model = $("#transcription-model");
   model.replaceChildren(...settings.transcription_models.map((name) => new Option(name, name)));
@@ -69,6 +75,49 @@ function initSettings(settings) {
   $("#temperature-value").textContent = Number(settings.temperature).toFixed(1);
   $("#generation-retries").value = String(settings.generation_retries);
   $("#output-folder-hint").textContent = `Default: ${settings.output_dir}`;
+}
+
+function setTheme(theme, persist = true) {
+  const dark = theme === "dark";
+  document.documentElement.dataset.theme = dark ? "dark" : "light";
+  const button = $("#theme-toggle");
+  if (button) {
+    button.textContent = dark ? "☀" : "☾";
+    button.title = dark ? "Switch to light mode" : "Switch to dark mode";
+    button.setAttribute("aria-label", button.title);
+  }
+  const meta = $("#theme-color-meta");
+  if (meta) meta.content = dark ? "#171b18" : "#f4f5f1";
+  if (persist) {
+    try { localStorage.setItem("autotrim-theme", dark ? "dark" : "light"); } catch { /* Theme still applies for this session. */ }
+  }
+}
+
+function initTheme() {
+  let theme = "light";
+  try { theme = localStorage.getItem("autotrim-theme") || "light"; } catch { /* Use light mode when storage is unavailable. */ }
+  setTheme(theme, false);
+}
+
+async function updateGeminiKey(remove = false) {
+  const input = $("#gemini-api-key");
+  const button = remove ? $("#remove-gemini-key") : $("#save-gemini-key");
+  const original = button.textContent;
+  button.disabled = true;
+  button.textContent = remove ? "Removing…" : "Saving…";
+  try {
+    const result = await api(remove ? "/api/settings/gemini-key/remove" : "/api/settings/gemini-key", {
+      method: "POST",
+      body: JSON.stringify(remove ? {} : { api_key: input.value }),
+    });
+    const status = $("#gemini-key-status");
+    status.textContent = result.configured ? "Configured" : "Not configured";
+    status.dataset.configured = String(result.configured);
+    $("#remove-gemini-key").hidden = !result.configured;
+    if (!remove) input.value = "";
+    toast(remove ? "Gemini API key removed from this computer" : "Gemini API key saved locally");
+  } catch (error) { toast(error.message, "error"); }
+  finally { button.disabled = false; button.textContent = original; }
 }
 
 function renderRecentRuns() {
@@ -376,6 +425,10 @@ async function cancelJob(jobId) {
 }
 
 function bindEvents() {
+  $("#theme-toggle").addEventListener("click", () => setTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark"));
+  $("#save-gemini-key").addEventListener("click", () => updateGeminiKey());
+  $("#remove-gemini-key").addEventListener("click", () => updateGeminiKey(true));
+  $("#gemini-api-key").addEventListener("keydown", (event) => { if (event.key === "Enter") { event.preventDefault(); updateGeminiKey(); } });
   $("#run-form").addEventListener("submit", startRun);
   $("#refresh-button").addEventListener("click", poll);
   $("#active-run").addEventListener("click", (event) => { const button = event.target.closest("[data-cancel]"); if (button) cancelJob(button.dataset.cancel); });
@@ -394,6 +447,7 @@ function bindEvents() {
   $("#temperature").addEventListener("input", (event) => { $("#temperature-value").value = Number(event.target.value).toFixed(1); $("#temperature-value").textContent = Number(event.target.value).toFixed(1); });
 }
 
+initTheme();
 bindEvents();
 poll();
 state.pollTimer = window.setInterval(poll, 1500);

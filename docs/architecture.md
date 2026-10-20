@@ -90,7 +90,7 @@ Provides a lightweight Ollama provider that talks to the local Ollama HTTP API. 
 
 The local browser dashboard is an optional loopback-only front end over the existing CLI pipeline. `ui/server.py` serves the static interface and JSON endpoints; `ui/jobs.py` persists each job's `status.json` and streamed `log.txt`, and runs one child process at a time. It supports full video jobs and generation-only runs from an existing transcript. Runtime state stays in the ignored `ui/data/` folder.
 
-The interface is plain HTML/CSS/JavaScript and uses Python's standard library for its HTTP server. It samples AutoTrim's process tree through `psutil` and reads optional NVIDIA telemetry from `nvidia-smi`. Dashboard-selected output subfolders and transcript regeneration are confined to the configured output directory.
+The interface is plain HTML/CSS/JavaScript and uses Python's standard library for its HTTP server. It samples AutoTrim's process tree through `psutil` and reads optional NVIDIA telemetry from `nvidia-smi`. Dashboard-selected output subfolders and transcript regeneration are confined to the configured output directory. It can save, replace, or remove the Gemini API key in the ignored project `.env` file; the browser only receives a configured/not-configured status. Its light or dark theme choice is stored in the browser.
 
 ## Data flow
 

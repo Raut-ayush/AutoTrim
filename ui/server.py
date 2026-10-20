@@ -6,13 +6,17 @@ import argparse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import mimetypes
+import os
 from pathlib import Path
 import sys
 from urllib.parse import parse_qs, unquote, urlparse
 
+from dotenv import load_dotenv, set_key, unset_key
 from config import (
     GEMINI_MODEL,
+    GEMINI_API_KEY_ENV,
     OUTPUT_DIR,
+    PROJECT_ROOT,
     REPURPOSER_MAX_RETRIES,
     REPURPOSER_TEMPERATURE,
     SUPPORTED_TRANSCRIPTION_MODELS,
@@ -20,6 +24,30 @@ from config import (
     TRANSCRIPTION_MODEL,
 )
 from ui.jobs import inside_output, manager
+
+
+ENV_FILE = PROJECT_ROOT / ".env"
+load_dotenv(ENV_FILE)
+
+
+def save_gemini_api_key(value: object, env_file: Path = ENV_FILE) -> None:
+    if not isinstance(value, str):
+        raise ValueError("Enter a valid Gemini API key.")
+    key = value.strip()
+    if not key or len(key) > 8192 or "\n" in key or "\r" in key:
+        raise ValueError("Enter a valid Gemini API key (1–8192 characters).")
+    success, _ = set_key(str(env_file), GEMINI_API_KEY_ENV, key, quote_mode="always")
+    if not success:
+        raise OSError("Could not save the Gemini API key to the local .env file.")
+    os.environ[GEMINI_API_KEY_ENV] = key
+
+
+def remove_gemini_api_key(env_file: Path = ENV_FILE) -> None:
+    if env_file.is_file():
+        success, _ = unset_key(str(env_file), GEMINI_API_KEY_ENV)
+        if success is False:
+            raise OSError("Could not remove the Gemini API key from the local .env file.")
+    os.environ.pop(GEMINI_API_KEY_ENV, None)
 
 
 UI_DIR = Path(__file__).resolve().parent
@@ -120,6 +148,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                         "temperature": REPURPOSER_TEMPERATURE,
                         "generation_retries": REPURPOSER_MAX_RETRIES,
                         "output_dir": str(OUTPUT_DIR),
+                        "gemini_api_key_configured": bool(os.getenv(GEMINI_API_KEY_ENV)),
                     },
                 })
             if path == "/api/library/preview":
@@ -190,6 +219,12 @@ class DashboardHandler(BaseHTTPRequestHandler):
         path = urlparse(self.path).path
         try:
             payload = self._body_json()
+            if path == "/api/settings/gemini-key":
+                save_gemini_api_key(payload.get("api_key"))
+                return self._json(200, {"saved": True, "configured": True})
+            if path == "/api/settings/gemini-key/remove":
+                remove_gemini_api_key()
+                return self._json(200, {"saved": True, "configured": False})
             if path == "/api/jobs/batch":
                 return self._json(202, {"jobs": manager.enqueue_videos(payload)})
             if path == "/api/jobs":
@@ -204,6 +239,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self._json(400, {"error": str(exc)})
         except KeyError:
             self._json(404, {"error": "Job not found."})
+        except OSError:
+            # Avoid returning file or credential details to the browser.
+            self._json(500, {"error": "Could not update the local Gemini API key."})
 
     def _host_allowed(self) -> bool:
         host = self.headers.get("Host", "").split(":", 1)[0].strip("[]").lower()

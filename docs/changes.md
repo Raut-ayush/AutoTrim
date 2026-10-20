@@ -1,5 +1,11 @@
 # Changes log
 
+## 2026-10-20 — Dashboard settings and dark mode
+
+- Added a browser-persisted light/dark theme toggle.
+- Added controls to save, replace, or remove `GEMINI_API_KEY` in the ignored local `.env` file; the API never returns the secret.
+- Documented the dashboard settings and theme behavior.
+
 ## 2026-10-20 — Substack-only generation
 
 - Replaced X and Reddit generation with a single detailed Substack article and transcript-length-based word targets.

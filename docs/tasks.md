@@ -11,6 +11,7 @@
 - [x] Add a local browser dashboard with sequential queueing, live logs/status, and per-job persistence
 - [x] Add output review beside transcripts, Markdown rendering, X character warnings, copy and download actions
 - [x] Add generation-only regeneration from an existing transcript
+- [x] Add dashboard dark mode and local Gemini API key management
 - [ ] Move prompts into editable files and expose them in a later dashboard iteration
 - [ ] Add dashboard authentication only if remote/network access is introduced; keep the current app loopback-only
 - [ ] Improve retry logic and rate-limit handling for Gemini and Ollama requests
