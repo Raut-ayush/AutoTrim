@@ -45,6 +45,8 @@ from dotenv import load_dotenv
 from config import (
     GEMINI_API_KEY_ENV,
     GEMINI_MODEL,
+    REPURPOSER_MAX_RETRIES,
+    REPURPOSER_TEMPERATURE,
     OUTPUT_DIR,
     TRANSCRIPTION_BATCH_SIZE,
     TRANSCRIPTION_MODEL,
@@ -437,13 +439,41 @@ def main():
         help=f"WhisperX batch size (default: {TRANSCRIPTION_BATCH_SIZE})"
     )
 
+    parser.add_argument(
+        "--temperature",
+        type=float,
+        default=REPURPOSER_TEMPERATURE,
+        help=f"Gemini creativity setting from 0 to 1 (default: {REPURPOSER_TEMPERATURE})",
+    )
+
+    parser.add_argument(
+        "--generation-retries",
+        type=int,
+        default=REPURPOSER_MAX_RETRIES,
+        help=f"Maximum Gemini generation attempts (default: {REPURPOSER_MAX_RETRIES})",
+    )
+
+    parser.add_argument(
+        "--output-dir",
+        default=str(OUTPUT_DIR),
+        help="Output root directory for transcripts and content",
+    )
+
     args = parser.parse_args()
+
+    if not 0 <= args.temperature <= 1:
+        parser.error("--temperature must be between 0 and 1")
+    if not 1 <= args.generation_retries <= 10:
+        parser.error("--generation-retries must be between 1 and 10")
 
     project_dir = Path(__file__).parent
 
     python_executable = sys.executable
 
-    output_dir = OUTPUT_DIR
+    output_dir = Path(args.output_dir).expanduser()
+    if not output_dir.is_absolute():
+        output_dir = project_dir / output_dir
+    output_dir = output_dir.resolve()
 
     output_dir.mkdir(
         parents=True,
@@ -502,7 +532,6 @@ def main():
             f"Video ID             : "
             f"{video_id}"
         )
-
     else:
 
         print(
@@ -530,6 +559,20 @@ def main():
             output_dir,
             video_id
         )
+
+    existing_content = (
+        find_existing_content(transcript_txt)
+        if transcript_txt is not None
+        else None
+    )
+    if existing_content is None:
+        load_dotenv(project_dir / ".env")
+        if not os.getenv(GEMINI_API_KEY_ENV):
+            print(
+                f"ERROR: {GEMINI_API_KEY_ENV} is not set. Add it to "
+                f"{project_dir / '.env'} or your environment before generating."
+            )
+            return ExitCode.CONFIGURATION
 
     if (
         transcript_json is not None
@@ -574,6 +617,7 @@ def main():
 
         transcription_command = [
             python_executable,
+            "-u",
             str(
                 project_dir /
                 "transcribe.py"
@@ -583,6 +627,8 @@ def main():
             args.transcription_model,
             "--batch-size",
             str(args.batch_size),
+            "--output-dir",
+            str(output_dir),
         ]
 
         run_command(
@@ -680,16 +726,9 @@ def main():
         # Run repurposer
         # ----------------------------------------------------
 
-        load_dotenv(project_dir / ".env")
-        if not os.getenv(GEMINI_API_KEY_ENV):
-            print(
-                f"ERROR: {GEMINI_API_KEY_ENV} is not set. Add it to "
-                f"{project_dir / '.env'} or your environment before generating."
-            )
-            return ExitCode.CONFIGURATION
-
         repurposer_command = [
             python_executable,
+            "-u",
             str(
                 project_dir /
                 "repurposer.py"
@@ -705,6 +744,11 @@ def main():
                 "--model",
                 args.model,
             ])
+
+        repurposer_command.extend([
+            "--temperature", str(args.temperature),
+            "--max-retries", str(args.generation_retries),
+        ])
 
         run_command(
             repurposer_command,

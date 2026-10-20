@@ -1,5 +1,13 @@
 # Changes log
 
+## 2026-10-11 — Local dashboard
+
+- Added the loopback-only web dashboard in `ui/`, with a persistent sequential job runner, live stage/log updates, CPU/RAM sampling, and optional NVIDIA GPU telemetry.
+- Added the existing transcript library, generation-only regeneration, side-by-side source/output review, Markdown display, X character warnings, copy controls, and artifact downloads.
+- Exposed transcription model/batch size, Gemini model/temperature/retries, and an output subfolder per job; left prompt editing for a later iteration.
+- Added multi-link queue submission with up to ten links at a time.
+- Added CLI generation setting overrides and ignored runtime dashboard job state.
+
 ## 2026-10-11 — Setup and runtime reliability
 
 - Added pinned direct dependencies and setup instructions for Python 3.13, FFmpeg, PyTorch CPU/CUDA selection, and Gemini credentials.

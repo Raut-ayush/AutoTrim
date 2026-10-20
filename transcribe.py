@@ -896,7 +896,19 @@ def main():
         help=f"Batch size (default: {DEFAULT_BATCH_SIZE})",
     )
 
+    parser.add_argument(
+        "--output-dir",
+        default=str(OUTPUT_DIR),
+        help="Output root directory for downloaded audio and transcripts",
+    )
+
     args = parser.parse_args()
+
+    output_dir = Path(args.output_dir).expanduser()
+    if not output_dir.is_absolute():
+        output_dir = Path(__file__).resolve().parent / output_dir
+    global BASE_OUTPUT_DIR
+    BASE_OUTPUT_DIR = output_dir.resolve()
 
     if shutil.which("ffmpeg") is None:
         print(

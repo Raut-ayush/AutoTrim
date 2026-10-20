@@ -20,6 +20,8 @@ This project is best described as a working prototype / MVP with significant wor
 - LLM-based content repurposing into X, Reddit, and Substack formats
 - Optional Gemini and Ollama providers
 - Benchmarking and log generation
+- Loopback-only browser dashboard with a sequential persistent job queue
+- Live job stages and logs, hardware sampling, output downloads, side-by-side transcript review, and generation-only regeneration
 
 ## What is missing or weak
 

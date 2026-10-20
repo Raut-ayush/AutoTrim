@@ -905,7 +905,8 @@ def save_json(
 def generate_content(
     transcript: str,
     model: str,
-    max_retries: int = REPURPOSER_MAX_RETRIES
+    max_retries: int = REPURPOSER_MAX_RETRIES,
+    temperature: float = REPURPOSER_TEMPERATURE,
 ) -> RepurposedContent:
     """
     Generate all platform content using ONE Gemini request.
@@ -940,7 +941,7 @@ def generate_content(
                     system_instruction=SYSTEM_PROMPT,
                     response_mime_type="application/json",
                     response_schema=RepurposedContent,
-                    temperature=REPURPOSER_TEMPERATURE,
+                    temperature=temperature,
                 ),
             )
 
@@ -1033,7 +1034,9 @@ def generate_content(
 
 def repurpose_transcript(
     transcript_path: str,
-    model: str = DEFAULT_MODEL
+    model: str = DEFAULT_MODEL,
+    temperature: float = REPURPOSER_TEMPERATURE,
+    max_retries: int = REPURPOSER_MAX_RETRIES,
 ):
     """
     Read transcript.txt, generate content and save
@@ -1130,7 +1133,9 @@ def repurpose_transcript(
 
     data = generate_content(
         transcript=transcript,
-        model=model
+        model=model,
+        max_retries=max_retries,
+        temperature=temperature,
     )
 
     # --------------------------------------------------------
@@ -1270,13 +1275,34 @@ def main():
         )
     )
 
+    parser.add_argument(
+        "--temperature",
+        type=float,
+        default=REPURPOSER_TEMPERATURE,
+        help=f"Gemini creativity setting from 0 to 1 (default: {REPURPOSER_TEMPERATURE})",
+    )
+
+    parser.add_argument(
+        "--max-retries",
+        type=int,
+        default=REPURPOSER_MAX_RETRIES,
+        help=f"Maximum generation attempts (default: {REPURPOSER_MAX_RETRIES})",
+    )
+
     args = parser.parse_args()
+
+    if not 0 <= args.temperature <= 1:
+        parser.error("--temperature must be between 0 and 1")
+    if not 1 <= args.max_retries <= 10:
+        parser.error("--max-retries must be between 1 and 10")
 
     try:
 
         repurpose_transcript(
             transcript_path=args.transcript,
-            model=args.model
+            model=args.model,
+            temperature=args.temperature,
+            max_retries=args.max_retries,
         )
 
     except KeyboardInterrupt:

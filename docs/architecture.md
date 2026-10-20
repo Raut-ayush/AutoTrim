@@ -87,6 +87,12 @@ Provides a `GeminiProvider` with retry logic for transient API errors such as 42
 
 Provides a lightweight Ollama provider that talks to the local Ollama HTTP API. This allows the project to run without a hosted Gemini dependency when a local model is available.
 
+### `ui/`
+
+The local browser dashboard is an optional loopback-only front end over the existing CLI pipeline. `ui/server.py` serves the static interface and JSON endpoints; `ui/jobs.py` persists each job's `status.json` and streamed `log.txt`, and runs one child process at a time. It supports full video jobs and generation-only runs from an existing transcript. Runtime state stays in the ignored `ui/data/` folder.
+
+The interface is plain HTML/CSS/JavaScript and uses Python's standard library for its HTTP server. It samples AutoTrim's process tree through `psutil` and reads optional NVIDIA telemetry from `nvidia-smi`. Dashboard-selected output subfolders and transcript regeneration are confined to the configured output directory.
+
 ## Data flow
 
 1. User provides a YouTube URL.

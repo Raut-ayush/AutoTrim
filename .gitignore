@@ -214,3 +214,6 @@ credentials/
 *.temp
 *.bak
 *.backup
+
+# Local dashboard job logs and status snapshots
+ui/data/

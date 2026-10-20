@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f4f5f1">
+  <title>AutoTrim Studio</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <a class="brand" href="/" aria-label="AutoTrim Studio home">
+        <span class="brand-mark"><span></span><span></span><span></span></span>
+        <span>auto<span class="brand-light">trim</span></span>
+      </a>
+      <div class="workspace-switch"><div class="workspace-avatar">A</div><div><b>Personal workspace</b><small>Local machine</small></div><span class="chevron">⌄</span></div>
+      <nav class="nav-group" aria-label="Main navigation">
+        <span class="nav-label">WORKSPACE</span>
+        <a class="nav-item active" href="#create"><span class="nav-icon">✳</span> New project</a>
+        <a class="nav-item" href="#runs"><span class="nav-icon">◷</span> Run history <span class="nav-count" id="run-count">0</span></a>
+        <a class="nav-item" href="#library"><span class="nav-icon">▤</span> Transcript library</a>
+      </nav>
+      <div class="sidebar-divider"></div>
+      <div class="recent-heading"><span class="nav-label">RECENT RUNS</span><span class="live-dot"></span></div>
+      <div class="recent-list" id="recent-list"><div class="sidebar-empty">Your runs will appear here.</div></div>
+      <div class="sidebar-bottom"><div class="local-badge"><span class="lock-icon">⌑</span><div><b>Private by design</b><small>Runs on this computer</small></div></div><div class="sidebar-version">AUTOTRIM STUDIO <span>·</span> LOCAL</div></div>
+    </aside>
+
+    <main class="main-content">
+      <header class="topbar">
+        <div class="breadcrumb"><span>Workspace</span><span class="crumb-slash">/</span><b>Overview</b></div>
+        <div class="topbar-right"><span class="server-indicator"><i></i> Local server connected</span><button class="icon-button" id="refresh-button" title="Refresh status" aria-label="Refresh status">↻</button><div class="user-chip">A</div></div>
+      </header>
+
+      <div class="page-wrap">
+        <section class="intro-row">
+          <div><div class="eyebrow"><span class="eyebrow-line"></span> YOUR CONTENT WORKSPACE</div><h1>Make more of<br class="mobile-break"> what you <em>make.</em></h1><p class="intro-copy">Turn a video into a thoughtful publishing kit.<br class="desktop-break"> Your words, ready for their next life.</p></div>
+          <div class="intro-aside"><span class="intro-glyph">◌</span><div><span class="intro-aside-title">A little more reach.</span><span class="intro-aside-caption">One source. A few new ways to share it.</span></div></div>
+        </section>
+
+        <section class="top-grid" id="create">
+          <article class="panel create-panel">
+            <div class="panel-heading"><div><span class="section-kicker">START SOMETHING</span><h2>New content run</h2></div><span class="step-number">01</span></div>
+            <form id="run-form">
+              <label class="field-label" for="video-url">VIDEO LINK <span class="label-optional">· YouTube</span></label>
+              <div class="url-input-wrap multi-url-wrap"><span class="url-icon">↗</span><textarea id="video-url" name="url" rows="2" placeholder="Paste one or more video links, one per line" autocomplete="url" required></textarea><button id="clear-url" class="clear-input" type="button" aria-label="Clear links" hidden>×</button></div><small class="field-hint">YouTube links only · up to 10 · runs one at a time.</small>
+              <div class="field-row">
+                <div class="field"><label class="field-label" for="transcription-model">TRANSCRIPTION MODEL</label><select id="transcription-model" name="transcription_model"></select></div>
+                <div class="field batch-field"><label class="field-label" for="batch-size">BATCH SIZE</label><select id="batch-size" name="batch_size"><option>1</option><option>2</option><option>4</option><option>8</option><option>16</option></select></div>
+              </div>
+              <div class="field model-field"><label class="field-label" for="gemini-model">CONTENT MODEL</label><div class="model-input-wrap"><span class="model-spark">✳</span><input id="gemini-model" name="gemini_model" type="text" placeholder="Gemini model name"></div><small class="field-hint">Your Gemini API key stays in your local .env file.</small></div>
+              <div class="field-row generation-row"><div class="field"><label class="field-label" for="temperature">GENERATION TEMPERATURE <output id="temperature-value">0.3</output></label><input id="temperature" class="temperature-range" type="range" min="0" max="1" step="0.1" value="0.3"></div><div class="field"><label class="field-label" for="generation-retries">RETRIES</label><select id="generation-retries"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option><option>9</option><option>10</option></select></div></div>
+              <div class="field output-folder-field"><label class="field-label" for="output-folder">OUTPUT SUBFOLDER <span class="label-optional">· inside output/</span></label><div class="model-input-wrap"><span class="folder-icon">▤</span><input id="output-folder" type="text" placeholder="Leave blank for the default folder"></div><small class="field-hint" id="output-folder-hint">Files stay inside the AutoTrim output directory.</small></div>
+              <div class="form-error" id="form-error" role="alert" hidden></div>
+              <div class="form-footer"><span class="privacy-note"><span>⌑</span> Processed locally</span><button class="primary-button" type="submit" id="start-button"><span>Start content run</span><span class="button-arrow">↗</span></button></div>
+            </form>
+          </article>
+
+          <div class="right-stack">
+            <article class="panel process-panel" id="runs">
+              <div class="panel-heading process-heading"><div><span class="section-kicker">LIVE ACTIVITY</span><h2>Run queue</h2></div><span class="queue-pill" id="queue-pill">ALL CLEAR</span></div>
+              <div id="active-run" class="active-run empty-active"><div class="empty-orbit"><span>◌</span></div><div><b>Nothing running just yet</b><p>Start a run and watch each step unfold here.</p></div></div>
+              <div id="queue-list" class="queue-list"></div>
+              <div class="activity-footer"><span><i class="pulse-dot"></i> Runs process one at a time</span><span class="queue-total" id="queue-total">0 in queue</span></div>
+            </article>
+
+            <article class="panel hardware-panel">
+              <div class="hardware-heading"><div><span class="section-kicker">SYSTEM MONITOR</span><h2>Hardware use</h2></div><span class="monitor-live" id="monitor-label"><i></i> IDLE</span></div>
+              <div class="resource-grid">
+                <div class="resource-item"><div class="resource-top"><span>CPU</span><b id="cpu-value">—</b></div><div class="meter"><i id="cpu-meter"></i></div><small id="cpu-caption">Waiting for a run</small></div>
+                <div class="resource-item"><div class="resource-top"><span>MEMORY</span><b id="memory-value">—</b></div><div class="meter sage"><i id="memory-meter"></i></div><small id="memory-caption">Process memory</small></div>
+                <div class="resource-item gpu-resource"><div class="resource-top"><span>GPU LOAD</span><b id="gpu-value">—</b></div><div class="meter amber"><i id="gpu-meter"></i></div><small id="gpu-caption">Requires NVIDIA tools</small></div>
+                <div class="resource-item"><div class="resource-top"><span>GPU MEMORY</span><b id="gpu-memory-value">—</b></div><div class="meter lavender"><i id="gpu-memory-meter"></i></div><small id="gpu-memory-caption">Dedicated VRAM</small></div>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section class="review-section" id="library">
+          <div class="review-header"><div><span class="section-kicker">THE WORK, SIDE BY SIDE</span><h2>Review your content</h2><p>Keep the original close while you check what came from it.</p></div><div class="review-controls"><select id="review-select" aria-label="Choose a run or transcript"><option value="">Choose a run to review</option></select><button id="regenerate-button" class="secondary-button" disabled><span>↻</span> Regenerate from transcript</button></div></div>
+          <div class="review-grid">
+            <article class="review-card source-card"><div class="review-card-head"><div class="review-title"><span class="review-icon source-icon">▤</span><div><b>Source transcript</b><small id="source-name">Your original, in context</small></div></div><button class="small-action" id="copy-transcript" disabled>Copy text</button></div><div id="transcript-content" class="transcript-content"><div class="review-placeholder"><span>▤</span><p>Select a completed run or transcript<br>to read the source here.</p></div></div></article>
+            <article class="review-card output-card"><div class="review-card-head output-head"><div class="review-title"><span class="review-icon output-icon">✳</span><div><b>Publishing kit</b><small id="output-name">Generated from your transcript</small></div></div><div class="output-tabs" role="tablist"><button class="output-tab active" data-output="x_thread" role="tab">X thread</button><button class="output-tab" data-output="reddit" role="tab">Reddit</button><button class="output-tab" data-output="substack" role="tab">Substack</button></div></div><div id="output-content" class="output-content"><div class="review-placeholder"><span>✳</span><p>Your X thread, Reddit post and<br>Substack story will show up here.</p></div></div></article>
+          </div>
+          <div class="files-strip"><div class="files-intro"><span class="file-stack-icon">▤</span><div><b>Run files</b><small id="files-caption">Downloads appear when a run is complete.</small></div></div><div id="file-list" class="file-list"><span class="muted-empty">No files yet</span></div></div>
+        </section>
+
+        <section class="logs-section panel" id="logs">
+          <div class="logs-heading"><div><span class="section-kicker">UNDER THE HOOD</span><h2>Run log</h2></div><span class="log-job-label" id="log-job-label">Select a run to inspect details</span><button class="small-action" id="copy-log" disabled>Copy log</button></div>
+          <pre id="log-content" class="log-content"><span class="log-muted">Logs stream here as the pipeline works.</span></pre>
+        </section>
+
+        <footer class="page-footer"><span>MADE FOR MAKING THINGS THAT MATTER</span><span>AutoTrim runs on your machine <i>·</i> Your work stays yours</span></footer>
+      </div>
+    </main>
+  </div>
+  <div id="toast-region" class="toast-region" aria-live="polite"></div>
+</body>
+</html>

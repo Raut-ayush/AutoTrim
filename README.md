@@ -64,6 +64,20 @@ ollama pull qwen2.5-coder:7b
 python content_formatter.py "output/VIDEO/transcript.json" --provider ollama
 ```
 
+## Local dashboard
+
+Start the browser dashboard from the repository directory using the same virtual environment:
+
+```powershell
+python -m ui
+```
+
+Open [http://127.0.0.1:8765](http://127.0.0.1:8765). It listens on loopback only and does not need another package. The dashboard can queue multiple video links, runs them one at a time, shows the current stage and streamed logs, and samples the AutoTrim process tree's CPU and memory use. NVIDIA GPU load and VRAM are shown when `nvidia-smi` is available; otherwise they are marked unavailable.
+
+Paste up to 10 links (one per line) to queue several videos. Select an existing transcript in the library to compare it beside its generated output, see per-post character counts (with a warning above 270 characters per X post), render the Reddit/Substack Markdown, copy text, or download the transcript and generated files. **Regenerate from transcript** starts only the Gemini generation stage and reuses the selected `.txt` file. Generation model, temperature, retry count, WhisperX model, batch size, and an output subfolder under `output/` can be set per run.
+
+Job status snapshots and logs are stored under `ui/data/` and excluded from Git. The current full publishing pipeline generates with Gemini; the separate Ollama content formatter remains available through its CLI.
+
 Outputs, logs, and benchmark files are stored in the repository's `output/`, `logs/`, and `benchmark/` directories, regardless of the shell's current directory. WhisperX model weights are downloaded on first use. The default transcription model is `small`; first runs therefore need network access and enough disk space for model weights.
 
 ## Startup checks and exit codes
@@ -74,7 +88,7 @@ CLI exit codes are consistent across the workflow: `0` success, `2` command-line
 
 ## Configuration
 
-Defaults are in [config.py](./config.py): WhisperX model and batch size, Gemini/Ollama model names, generation temperatures/retries, and output/log/benchmark paths. CLI flags override defaults where supported. Paths are rooted at the project directory.
+Defaults are in [config.py](./config.py): WhisperX model and batch size, Gemini/Ollama model names, generation temperatures/retries, and output/log/benchmark paths. CLI flags and dashboard controls override defaults where supported. Paths are rooted at the project directory.
 
 ## Project documentation
 
