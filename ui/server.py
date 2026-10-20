@@ -19,8 +19,10 @@ from config import (
     PROJECT_ROOT,
     REPURPOSER_MAX_RETRIES,
     REPURPOSER_TEMPERATURE,
+    SUPPORTED_TRANSCRIPTION_LANGUAGES,
     SUPPORTED_TRANSCRIPTION_MODELS,
     TRANSCRIPTION_BATCH_SIZE,
+    TRANSCRIPTION_LANGUAGE,
     TRANSCRIPTION_MODEL,
 )
 from ui.jobs import inside_output, manager
@@ -143,6 +145,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     "settings": {
                         "transcription_models": sorted(SUPPORTED_TRANSCRIPTION_MODELS),
                         "transcription_model": TRANSCRIPTION_MODEL,
+                        "transcription_languages": sorted(SUPPORTED_TRANSCRIPTION_LANGUAGES),
+                        "transcription_language": TRANSCRIPTION_LANGUAGE,
                         "batch_size": TRANSCRIPTION_BATCH_SIZE,
                         "gemini_model": GEMINI_MODEL,
                         "temperature": REPURPOSER_TEMPERATURE,

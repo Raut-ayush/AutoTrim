@@ -68,6 +68,10 @@ function initSettings(settings) {
   const model = $("#transcription-model");
   model.replaceChildren(...settings.transcription_models.map((name) => new Option(name, name)));
   model.value = settings.transcription_model;
+  const languageLabels = { auto: "Auto-detect", hi: "Hindi", "hi-en": "Hindi + English (auto-detect)" };
+  const language = $("#transcription-language");
+  language.replaceChildren(...settings.transcription_languages.map((code) => new Option(languageLabels[code] || code, code)));
+  language.value = settings.transcription_language;
   $("#batch-size").value = String(settings.batch_size);
   $("#gemini-model").value = settings.gemini_model;
   $("#temperature").value = String(settings.temperature);
@@ -291,7 +295,13 @@ function renderPreview(preview) {
     $("#copy-transcript").disabled = true;
   }
   $("#output-name").textContent = preview?.content ? "Generated from this transcript" : "No generated content yet";
-  $("#regenerate-button").disabled = !preview?.transcript_txt;
+  const qualityFlagged = state.selectedJob?.stage === "Transcript needs review" || state.selectedJob?.exit_code === 7;
+  const qualityOverride = $("#regenerate-low-quality");
+  qualityOverride.disabled = !preview?.transcript_txt;
+  $("#quality-review-notice").hidden = !qualityFlagged || !preview?.transcript_txt;
+  const regenerateButton = $("#regenerate-button");
+  regenerateButton.disabled = !preview?.transcript_txt || (qualityFlagged && !qualityOverride.checked);
+  regenerateButton.lastChild.textContent = qualityFlagged ? " Generate article anyway" : " Regenerate from transcript";
   renderOutput();
   renderFiles(preview?.files || []);
 }
@@ -384,6 +394,8 @@ async function startRun(event) {
   const payload = {
     urls,
     transcription_model: $("#transcription-model").value,
+    transcription_language: $("#transcription-language").value,
+    allow_low_quality_transcript: $("#allow-low-quality-transcript").checked,
     batch_size: Number($("#batch-size").value),
     gemini_model: $("#gemini-model").value.trim(),
     temperature: Number($("#temperature").value),
@@ -406,7 +418,7 @@ async function regenerate() {
   if (!state.preview?.transcript_txt) return;
   const button = $("#regenerate-button"); button.disabled = true;
   try {
-    const job = await api("/api/regenerate", { method: "POST", body: JSON.stringify({ transcript_path: state.preview.transcript_txt, gemini_model: $("#gemini-model").value.trim(), temperature: Number($("#temperature").value), generation_retries: Number($("#generation-retries").value) }) });
+    const job = await api("/api/regenerate", { method: "POST", body: JSON.stringify({ transcript_path: state.preview.transcript_txt, gemini_model: $("#gemini-model").value.trim(), temperature: Number($("#temperature").value), generation_retries: Number($("#generation-retries").value), allow_low_quality_transcript: $("#regenerate-low-quality").checked }) });
     state.selectedKey = `job:${job.id}`; state.previewSignature = "";
     toast("Regeneration added to the queue");
     await poll(); await selectJob(job.id);
@@ -440,6 +452,10 @@ function bindEvents() {
     else { state.selectedKey = ""; renderPreview(null); }
   });
   $("#regenerate-button").addEventListener("click", regenerate);
+  $("#regenerate-low-quality").addEventListener("change", () => {
+    const qualityFlagged = state.selectedJob?.stage === "Transcript needs review" || state.selectedJob?.exit_code === 7;
+    $("#regenerate-button").disabled = !state.preview?.transcript_txt || (qualityFlagged && !$("#regenerate-low-quality").checked);
+  });
   $("#copy-transcript").addEventListener("click", () => copyToClipboard(state.preview?.transcript || "", "Transcript copied"));
   $("#copy-log").addEventListener("click", () => copyToClipboard(state.log, "Run log copied"));
   $("#clear-url").addEventListener("click", () => { $("#video-url").value = ""; $("#clear-url").hidden = true; $("#video-url").focus(); });

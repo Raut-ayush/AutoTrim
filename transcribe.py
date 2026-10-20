@@ -19,8 +19,10 @@ from config import (
     BENCHMARK_DIR,
     LOG_DIR,
     OUTPUT_DIR,
+    SUPPORTED_TRANSCRIPTION_LANGUAGES,
     SUPPORTED_TRANSCRIPTION_MODELS,
     TRANSCRIPTION_BATCH_SIZE,
+    TRANSCRIPTION_LANGUAGE,
     TRANSCRIPTION_MODEL,
 )
 from errors import ExitCode
@@ -358,6 +360,9 @@ def extract_video_info(url):
         "no_warnings": False,
         "noplaylist": True,
     }
+    node_path = shutil.which("node")
+    if node_path:
+        ydl_opts["js_runtimes"] = {"node": {"path": node_path}}
 
     with YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(url, download=False)
@@ -404,6 +409,9 @@ def download_audio(url, output_dir, logger):
             }
         ],
     }
+    node_path = shutil.which("node")
+    if node_path:
+        ydl_opts["js_runtimes"] = {"node": {"path": node_path}}
 
     print("Downloading audio...")
 
@@ -460,6 +468,7 @@ def transcribe(
     audio_file,
     model_name,
     batch_size,
+    language_mode,
     logger,
 ):
 
@@ -495,10 +504,9 @@ def transcribe(
 
     start_time = time.perf_counter()
 
-    result = model.transcribe(
-        audio,
-        batch_size=batch_size,
-    )
+    requested_language = "hi" if language_mode == "hi" else None
+    logger.info("Transcription language mode=%s", language_mode)
+    result = model.transcribe(audio, batch_size=batch_size, language=requested_language)
 
     elapsed = time.perf_counter() - start_time
 
@@ -897,6 +905,13 @@ def main():
     )
 
     parser.add_argument(
+        "--language",
+        choices=sorted(SUPPORTED_TRANSCRIPTION_LANGUAGES),
+        default=TRANSCRIPTION_LANGUAGE,
+        help="Transcription language: auto-detect, Hindi, or mixed Hindi/English (default: auto)",
+    )
+
+    parser.add_argument(
         "--output-dir",
         default=str(OUTPUT_DIR),
         help="Output root directory for downloaded audio and transcripts",
@@ -1157,6 +1172,7 @@ def main():
             audio_file,
             args.model,
             args.batch_size,
+            args.language,
             logger,
         )
 

@@ -46,7 +46,9 @@ from config import (
     REPURPOSER_MAX_RETRIES,
     REPURPOSER_TEMPERATURE,
     OUTPUT_DIR,
+    SUPPORTED_TRANSCRIPTION_LANGUAGES,
     TRANSCRIPTION_BATCH_SIZE,
+    TRANSCRIPTION_LANGUAGE,
     TRANSCRIPTION_MODEL,
 )
 from errors import ExitCode
@@ -73,12 +75,35 @@ def run_command(command, step_name):
     print(" ".join(str(x) for x in command))
     print()
 
-    result = subprocess.run(
-        command,
-        cwd=Path(__file__).parent,
-    )
+    try:
+        result = subprocess.run(
+            command,
+            cwd=Path(__file__).parent,
+            check=False,
+        )
+    except FileNotFoundError as exc:
+        print(f"ERROR: Could not start {step_name}: executable or script not found: {exc}")
+        raise SystemExit(ExitCode.DEPENDENCY) from exc
+    except OSError as exc:
+        print(f"ERROR: Could not start {step_name}: {exc}")
+        raise SystemExit(ExitCode.PROCESSING) from exc
 
     if result.returncode != 0:
+
+        if result.returncode == ExitCode.TRANSCRIPT_QUALITY:
+            print()
+            print("TRANSCRIPT NEEDS REVIEW")
+            print(
+                "Transcription finished, but article generation was skipped because "
+                "the transcript contains strong corruption signals. Review transcript.txt "
+                "in the output folder, correct it or transcribe with a different model, "
+                "then rerun. The existing transcript will be reused."
+            )
+            print(
+                "If you intentionally want Gemini to use this transcript, rerun with "
+                "--allow-low-quality-transcript."
+            )
+            raise SystemExit(ExitCode.TRANSCRIPT_QUALITY)
 
         print()
         print("=" * 60)
@@ -442,6 +467,13 @@ def main():
     )
 
     parser.add_argument(
+        "--transcription-language",
+        choices=sorted(SUPPORTED_TRANSCRIPTION_LANGUAGES),
+        default=TRANSCRIPTION_LANGUAGE,
+        help="Transcription language: auto-detect, Hindi, or mixed Hindi/English",
+    )
+
+    parser.add_argument(
         "--temperature",
         type=float,
         default=REPURPOSER_TEMPERATURE,
@@ -453,6 +485,12 @@ def main():
         type=int,
         default=REPURPOSER_MAX_RETRIES,
         help=f"Maximum Gemini generation attempts (default: {REPURPOSER_MAX_RETRIES})",
+    )
+
+    parser.add_argument(
+        "--allow-low-quality-transcript",
+        action="store_true",
+        help="Continue to Gemini when transcript quality checks detect likely corruption.",
     )
 
     parser.add_argument(
@@ -517,6 +555,9 @@ def main():
         f"Batch Size           : "
         f"{args.batch_size}"
     )
+
+    language_labels = {"auto": "Auto-detect", "hi": "Hindi", "hi-en": "Hindi + English (auto-detect)"}
+    print(f"Transcription Language: {language_labels[args.transcription_language]}")
 
     # ========================================================
     # IDENTIFY VIDEO
@@ -629,6 +670,8 @@ def main():
             args.transcription_model,
             "--batch-size",
             str(args.batch_size),
+            "--language",
+            args.transcription_language,
             "--output-dir",
             str(output_dir),
         ]
@@ -751,6 +794,8 @@ def main():
             "--temperature", str(args.temperature),
             "--max-retries", str(args.generation_retries),
         ])
+        if args.allow_low_quality_transcript:
+            repurposer_command.append("--allow-low-quality-transcript")
 
         run_command(
             repurposer_command,

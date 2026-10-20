@@ -43,7 +43,7 @@ This module performs the end-to-end transcription pipeline:
 - fetches YouTube metadata,
 - downloads the audio stream,
 - loads the WhisperX model,
-- transcribes and aligns segments,
+- transcribes and aligns segments, optionally forcing Hindi or using automatic language detection,
 - saves transcript.txt, transcript.srt, and transcript.json,
 - records benchmark metrics in JSON and CSV logs.
 
@@ -99,7 +99,7 @@ The interface is plain HTML/CSS/JavaScript and uses Python's standard library fo
 3. If no transcript exists, `transcribe.py` downloads the audio and runs WhisperX.
 4. Transcript results are saved as JSON, TXT, and SRT.
 5. `autotrim.py` checks whether repurposed content already exists.
-6. If missing, `repurposer.py` reads the transcript text and asks an LLM to generate structured content.
+6. If missing, `repurposer.py` reads the transcript text and asks an LLM to generate a structured English article, translating non-English source passages as needed.
 7. The Substack text file and structured JSON are written under the per-video `content/` subfolder.
 8. Benchmark logs capture runtime, model, duration, and transcript statistics.
 

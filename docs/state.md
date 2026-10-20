@@ -23,6 +23,7 @@ This project is best described as a working prototype / MVP with significant wor
 - Loopback-only browser dashboard with a sequential persistent job queue
 - Live job stages and logs, hardware sampling, output downloads, side-by-side transcript review, and generation-only regeneration
 - Browser-persisted dark mode and dashboard controls to save, replace, or remove the local Gemini API key
+- Auto-detect, forced Hindi, and Hindi + English auto-detect transcription modes; Substack generation is English-only
 
 ## What is missing or weak
 

@@ -3,7 +3,9 @@
 import argparse
 import json
 import os
+import sys
 import time
+import unicodedata
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -18,7 +20,7 @@ from config import (
     REPURPOSER_MAX_RETRIES,
     REPURPOSER_TEMPERATURE,
 )
-from errors import ConfigurationError, ExitCode, ServiceError
+from errors import ConfigurationError, ExitCode, ServiceError, TranscriptQualityError
 
 
 load_dotenv(PROJECT_ROOT / ".env")
@@ -26,6 +28,8 @@ load_dotenv(PROJECT_ROOT / ".env")
 DEFAULT_MODEL = GEMINI_MODEL
 CHARS_PER_TOKEN_ESTIMATE = 4
 MAX_OUTPUT_TOKENS = 8192
+REPEATED_TOKEN_WARNING = 5
+REPEATED_TOKEN_BLOCK = 8
 
 LEGACY_OUTPUTS = (
     "x_thread.md",
@@ -55,6 +59,10 @@ facts, examples, quotations, causal claims, or conclusions. Preserve the
 speaker's meaning, uncertainty, caveats, names, numbers, and technical terms.
 Clean obvious speech-recognition errors only when the intended meaning is
 clear; omit uncertain details rather than guessing.
+Always write the article title and body in English. Translate Hindi or other
+non-English transcript passages faithfully into English; preserve names and
+technical terms accurately, and do not include untranslated passages unless
+they are proper names or terms used by the speaker.
 
 Write naturally and specifically. Avoid filler, repeated ideas, generic
 introductions, clickbait, promotional language, invented personal experience,
@@ -152,6 +160,54 @@ def validate_content(
     return issues
 
 
+def assess_transcript_quality(transcript: str) -> list[tuple[str, str]]:
+    """Find clear text-corruption signals before sending a transcript to Gemini."""
+    issues = []
+    replacement_count = transcript.count("\ufffd")
+    if replacement_count:
+        issues.append((
+            "blocking",
+            f"Transcript contains {replacement_count} U+FFFD Unicode replacement character(s), "
+            "which indicate text decoding or transcription corruption.",
+        ))
+
+    tokens = []
+    for raw_token in transcript.split():
+        normalized = unicodedata.normalize("NFKC", raw_token).casefold()
+        token = "".join(
+            char for char in normalized
+            if not unicodedata.category(char).startswith(("P", "S"))
+        )
+        if token:
+            tokens.append(token)
+
+    longest_token = ""
+    longest_run = 0
+    current_token = ""
+    current_run = 0
+    for token in tokens:
+        if token == current_token:
+            current_run += 1
+        else:
+            current_token, current_run = token, 1
+        if current_run > longest_run:
+            longest_token, longest_run = current_token, current_run
+
+    if longest_run >= REPEATED_TOKEN_BLOCK:
+        issues.append((
+            "blocking",
+            f"Transcript repeats the same token {longest_run} times consecutively "
+            f"({longest_token!r}), suggesting an ASR repetition loop.",
+        ))
+    elif longest_run >= REPEATED_TOKEN_WARNING:
+        issues.append((
+            "warning",
+            f"Transcript repeats the same token {longest_run} times consecutively "
+            f"({longest_token!r}); review for a possible ASR loop.",
+        ))
+    return issues
+
+
 def build_generation_config(temperature: float) -> types.GenerateContentConfig:
     return types.GenerateContentConfig(
         system_instruction=SYSTEM_PROMPT,
@@ -243,6 +299,7 @@ def repurpose_transcript(
     model: str = DEFAULT_MODEL,
     temperature: float = REPURPOSER_TEMPERATURE,
     max_retries: int = REPURPOSER_MAX_RETRIES,
+    allow_low_quality_transcript: bool = False,
 ) -> RepurposedContent:
     transcript_file = Path(transcript_path)
     if not transcript_file.is_file():
@@ -268,6 +325,23 @@ def repurpose_transcript(
     print(f"Transcript words:  {word_count:,}")
     print(f"Estimated input tokens: ~{estimated_tokens:,.0f}")
     print(f"Article length target: {minimum:,}–{maximum:,} words")
+
+    quality_issues = assess_transcript_quality(transcript)
+    if quality_issues:
+        print("[Transcript quality] Review required:")
+        for severity, issue in quality_issues:
+            print(f"  - {severity.upper()}: {issue}")
+        blocking_issues = [issue for severity, issue in quality_issues if severity == "blocking"]
+        if blocking_issues and not allow_low_quality_transcript:
+            raise TranscriptQualityError(
+                "Transcript quality check stopped generation. Inspect transcript.txt, "
+                "correct or regenerate it, then rerun. To intentionally bypass the check, "
+                "use --allow-low-quality-transcript."
+            )
+        if allow_low_quality_transcript:
+            print("[Transcript quality] Continuing because the override was supplied.")
+    else:
+        print("[Transcript quality] No obvious text corruption detected.")
 
     data = generate_content(
         transcript=transcript,
@@ -319,6 +393,11 @@ def main() -> None:
         default=REPURPOSER_MAX_RETRIES,
         help=f"Maximum generation attempts (default: {REPURPOSER_MAX_RETRIES})",
     )
+    parser.add_argument(
+        "--allow-low-quality-transcript",
+        action="store_true",
+        help="Continue to Gemini after a transcript quality check failure.",
+    )
     args = parser.parse_args()
 
     if not 0 <= args.temperature <= 1:
@@ -332,6 +411,7 @@ def main() -> None:
             model=args.model,
             temperature=args.temperature,
             max_retries=args.max_retries,
+            allow_low_quality_transcript=args.allow_low_quality_transcript,
         )
     except KeyboardInterrupt:
         print("\nCancelled by user.")
@@ -343,4 +423,8 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    if hasattr(sys.stderr, "reconfigure"):
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
     main()

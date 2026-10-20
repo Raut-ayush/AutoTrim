@@ -8,6 +8,7 @@ class ExitCode:
     DEPENDENCY = 4
     SERVICE = 5
     PROCESSING = 6
+    TRANSCRIPT_QUALITY = 7
     INTERRUPTED = 130
 
 
@@ -27,3 +28,9 @@ class DependencyError(AutoTrimError):
 
 class ServiceError(AutoTrimError):
     exit_code = ExitCode.SERVICE
+
+
+class TranscriptQualityError(AutoTrimError):
+    """Transcript has corruption signals that need review before generation."""
+
+    exit_code = ExitCode.TRANSCRIPT_QUALITY

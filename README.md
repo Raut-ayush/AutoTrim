@@ -45,6 +45,13 @@ Run the complete resumable workflow:
 python autotrim.py "https://www.youtube.com/watch?v=VIDEO_ID"
 ```
 
+For a Hindi video, force Hindi recognition; use `hi-en` when speech switches between Hindi and English to let WhisperX detect the language from the opening audio:
+
+```powershell
+python autotrim.py "https://www.youtube.com/watch?v=VIDEO_ID" --transcription-language hi
+python autotrim.py "https://www.youtube.com/watch?v=VIDEO_ID" --transcription-language hi-en
+```
+
 Transcribe only:
 
 ```powershell
@@ -74,7 +81,7 @@ python -m ui
 
 Open [http://127.0.0.1:8765](http://127.0.0.1:8765). It listens on loopback only and does not need another package. The dashboard can queue multiple video links, runs them one at a time, shows the current stage and streamed logs, and samples the AutoTrim process tree's CPU and memory use. NVIDIA GPU load and VRAM are shown when `nvidia-smi` is available; otherwise they are marked unavailable.
 
-Paste up to 10 links (one per line) to queue several videos. Select an existing transcript in the library to compare it beside the generated Substack article, copy either text, or download the transcript and generated files. The detailed article is saved as `content/substack_post.txt`; `repurposed.json` is also saved for dashboard previews. **Regenerate from transcript** starts only the Gemini generation stage and reuses the selected `.txt` file. Generation model, temperature, retry count, WhisperX model, batch size, and an output subfolder under `output/` can be set per run. Use the Gemini API key control to save, replace, or remove `GEMINI_API_KEY` in the project’s ignored local `.env` file; the key is masked and never returned to the browser. Theme preference (light or dark) is saved in that browser.
+Paste up to 10 links (one per line) to queue several videos. Select an existing transcript in the library to compare it beside the generated Substack article, copy either text, or download the transcript and generated files. The detailed article is saved as `content/substack_post.txt`; `repurposed.json` is also saved for dashboard previews. **Regenerate from transcript** starts only the Gemini generation stage and reuses the selected `.txt` file. Generation model, temperature, retry count, WhisperX model, transcription language, batch size, and an output subfolder under `output/` can be set per run. Language choices include auto-detect, Hindi, and Hindi + English auto-detect. WhisperX bases auto-detection on the opening audio and does not switch languages sentence by sentence, so code-switched transcripts may need review. The generated Substack article is always written in English. Use the Gemini API key control to save, replace, or remove `GEMINI_API_KEY` in the project’s ignored local `.env` file; the key is masked and never returned to the browser. Theme preference (light or dark) is saved in that browser.
 
 Job status snapshots and logs are stored under `ui/data/` and excluded from Git. The current full publishing pipeline generates with Gemini; the separate Ollama content formatter remains available through its CLI.
 

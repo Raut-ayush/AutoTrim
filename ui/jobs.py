@@ -26,7 +26,9 @@ from config import (
     REPURPOSER_MAX_RETRIES,
     REPURPOSER_TEMPERATURE,
     SUPPORTED_TRANSCRIPTION_MODELS,
+    SUPPORTED_TRANSCRIPTION_LANGUAGES,
     TRANSCRIPTION_BATCH_SIZE,
+    TRANSCRIPTION_LANGUAGE,
     TRANSCRIPTION_MODEL,
 )
 
@@ -114,6 +116,9 @@ class JobManager:
         model = payload.get("transcription_model", TRANSCRIPTION_MODEL)
         if model not in SUPPORTED_TRANSCRIPTION_MODELS:
             raise ValueError("Choose a supported WhisperX transcription model.")
+        language = payload.get("transcription_language", TRANSCRIPTION_LANGUAGE)
+        if not isinstance(language, str) or language not in SUPPORTED_TRANSCRIPTION_LANGUAGES:
+            raise ValueError("Choose auto-detect, Hindi, or Hindi + English for transcription.")
         try:
             batch_size = int(payload.get("batch_size", TRANSCRIPTION_BATCH_SIZE))
         except (TypeError, ValueError) as exc:
@@ -124,14 +129,19 @@ class JobManager:
         if not gemini_model or len(gemini_model) > 120:
             raise ValueError("Enter a valid Gemini model name.")
         temperature, retries = self._generation_settings(payload)
+        allow_low_quality = payload.get("allow_low_quality_transcript", False)
+        if not isinstance(allow_low_quality, bool):
+            raise ValueError("Transcript quality override must be true or false.")
         output_dir = self._output_dir(payload.get("output_folder", ""))
 
         return url, {
             "transcription_model": model,
+            "transcription_language": language,
             "batch_size": batch_size,
             "gemini_model": gemini_model,
             "temperature": temperature,
             "generation_retries": retries,
+            "allow_low_quality_transcript": allow_low_quality,
             "output_dir": str(output_dir),
         }
 
@@ -183,10 +193,13 @@ class JobManager:
         if not gemini_model or len(gemini_model) > 120:
             raise ValueError("Enter a valid Gemini model name.")
         temperature, retries = self._generation_settings(payload)
+        allow_low_quality = payload.get("allow_low_quality_transcript", False)
+        if not isinstance(allow_low_quality, bool):
+            raise ValueError("Transcript quality override must be true or false.")
         return self._enqueue(
             mode="regenerate",
             label=transcript.name,
-            settings={"gemini_model": gemini_model, "temperature": temperature, "generation_retries": retries},
+            settings={"gemini_model": gemini_model, "temperature": temperature, "generation_retries": retries, "allow_low_quality_transcript": allow_low_quality},
             transcript_txt=str(transcript),
         )
 
@@ -371,22 +384,29 @@ class JobManager:
     def _command(job: dict) -> list[str]:
         python = os.fspath(Path(sys.executable))
         if job["mode"] == "regenerate":
-            return [
+            command = [
                 python, "-u", str(PROJECT_ROOT / "repurposer.py"),
                 job["inputs"]["transcript_txt"], "--model", job["settings"]["gemini_model"],
                 "--temperature", str(job["settings"].get("temperature", REPURPOSER_TEMPERATURE)),
                 "--max-retries", str(job["settings"].get("generation_retries", REPURPOSER_MAX_RETRIES)),
             ]
-        return [
+            if job["settings"].get("allow_low_quality_transcript"):
+                command.append("--allow-low-quality-transcript")
+            return command
+        command = [
             python, "-u", str(PROJECT_ROOT / "autotrim.py"),
             job["inputs"]["url"],
             "--transcription-model", job["settings"]["transcription_model"],
+            "--transcription-language", job["settings"].get("transcription_language", TRANSCRIPTION_LANGUAGE),
             "--batch-size", str(job["settings"]["batch_size"]),
             "--output-dir", job["settings"].get("output_dir", str(OUTPUT_DIR)),
             "--model", job["settings"]["gemini_model"],
             "--temperature", str(job["settings"].get("temperature", REPURPOSER_TEMPERATURE)),
             "--generation-retries", str(job["settings"].get("generation_retries", REPURPOSER_MAX_RETRIES)),
         ]
+        if job["settings"].get("allow_low_quality_transcript"):
+            command.append("--allow-low-quality-transcript")
+        return command
 
     def _set_paths_from_log(self, job_id: str, line: str) -> None:
         cleaned = re.sub(r"\x1b\[[0-9;]*m", "", line).strip()
@@ -502,6 +522,21 @@ class JobManager:
                 self._update(job_id, status="completed", stage="Complete", exit_code=0, completed_at=now_iso())
             else:
                 cancelled = process.returncode is not None and process.returncode < 0
+                transcript_needs_review = exit_code == 7
+                if transcript_needs_review:
+                    self._update(
+                        job_id,
+                        status="failed",
+                        stage="Transcript needs review",
+                        exit_code=exit_code,
+                        error=(
+                            "Article generation was stopped because the transcript looks corrupted. "
+                            "Open transcript.txt from this job, correct it or choose a different "
+                            "transcription model, then regenerate."
+                        ),
+                        completed_at=now_iso(),
+                    )
+                    return
                 self._update(
                     job_id,
                     status="cancelled" if cancelled else "failed",

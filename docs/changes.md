@@ -1,5 +1,11 @@
 # Changes log
 
+## 2026-10-20 — Hindi transcription and English articles
+
+- Added dashboard and CLI choices for automatic language detection, forced Hindi, and mixed Hindi/English auto-detection.
+- Kept mixed-language mode on WhisperX auto-detection and documented that it detects a dominant language rather than switching language per sentence.
+- Instructed Substack generation to translate non-English transcript passages into English.
+
 ## 2026-10-20 — Dashboard settings and dark mode
 
 - Added a browser-persisted light/dark theme toggle.
@@ -39,3 +45,9 @@
 - Added the initial documentation set under `docs/` for project overview, product intent, architecture, project state, tasks, technical decisions, and change history.
 - Synthesized the project description from the repo’s code, Git history, and execution flow rather than from a separate product brief.
 - Recorded the current state as a functional prototype with clear remaining gaps in packaging, tests, and operational robustness.
+
+## 2026-10-20 — Transcript integrity and runtime diagnostics
+
+- Added a pre-generation transcript quality gate for Unicode replacement characters and severe consecutive-token loops, with a deliberate CLI/dashboard override.
+- Configured yt-dlp to use an installed Node.js runtime for YouTube JavaScript challenges.
+- Kept dependency and Windows cache warnings visible where the project cannot safely fix them by changing application code.
