@@ -17,7 +17,7 @@ This project is best described as a working prototype / MVP with significant wor
 - WhisperX transcription and word alignment
 - Transcript TXT/SRT/JSON outputs
 - Resumable execution flow for repeated runs
-- LLM-based content repurposing into X, Reddit, and Substack formats
+- LLM-based generation of a detailed Substack article from the complete transcript
 - Optional Gemini and Ollama providers
 - Benchmarking and log generation
 - Loopback-only browser dashboard with a sequential persistent job queue
@@ -27,7 +27,7 @@ This project is best described as a working prototype / MVP with significant wor
 
 - Formal project setup documentation beyond a minimal README
 - Dependency manifest or lockfile for install reproducibility
-- Automated tests for the pipeline and LLM-facing logic
+- Broader automated tests for the transcription and dashboard pipeline
 - Stronger validation of generated output quality and transcript fidelity
 - Production-grade config management and environment checks
 - Packaging or distribution path for end users

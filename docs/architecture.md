@@ -59,11 +59,10 @@ It includes logic for:
 
 This module transforms a transcript into publication-oriented content. It uses a prompt-driven LLM process and expects the response to follow a strict structured schema.
 
-The module creates:
+The module creates one UTF-8 Substack article and a structured JSON file used by the dashboard:
 
-- an X/Twitter thread,
-- a Reddit title and body,
-- a Substack title and long-form content.
+- `substack_post.txt` for a Substack title and long-form content,
+- `repurposed.json` for the article title and body used in dashboard previews.
 
 The prompt emphasizes source fidelity, human-sounding writing, and avoidance of unsupported facts.
 
@@ -101,7 +100,7 @@ The interface is plain HTML/CSS/JavaScript and uses Python's standard library fo
 4. Transcript results are saved as JSON, TXT, and SRT.
 5. `autotrim.py` checks whether repurposed content already exists.
 6. If missing, `repurposer.py` reads the transcript text and asks an LLM to generate structured content.
-7. Output is written under a per-video folder, under a `content/` subfolder.
+7. The Substack text file and structured JSON are written under the per-video `content/` subfolder.
 8. Benchmark logs capture runtime, model, duration, and transcript statistics.
 
 ## Design decisions

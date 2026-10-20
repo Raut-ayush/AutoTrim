@@ -33,9 +33,7 @@ This creates duplication, slows publishing, and makes it harder to reuse valuabl
 5. Save transcript output in multiple formats: TXT, SRT, and JSON.
 6. Reuse transcript output when rerunning the pipeline to avoid redundant work.
 7. Generate repurposed written content from transcript text for:
-   - X thread
-   - Reddit post
-   - Substack post
+   - one detailed Substack post
 8. Support a resumable pipeline that resumes after a failure or from a prior complete stage.
 9. Support multiple LLM backends: Gemini and Ollama.
 10. Record benchmark and performance metadata for each run.
@@ -54,13 +52,14 @@ This creates duplication, slows publishing, and makes it harder to reuse valuabl
 
 - The codebase originally included a blog-oriented repurposing path and later was updated to prioritize Substack-style output, as shown by the Git history entry "Replaced Blog with Substack".
 - The project evolved from a simple transcription script toward a more deliberate content-engineering pipeline, adding a structured content analysis layer in `content_formatter.py`.
+- The publishing pipeline now focuses on a detailed Substack article; X and Reddit generation were removed so output can focus on one in-depth piece.
 - The architecture favors local execution and script control over hosted service orchestration, which implies a DIY content pipeline mindset rather than a managed platform model.
 
 ## Acceptance criteria (inferred)
 
 The project is considered successful if:
 
-- a valid YouTube URL produces transcript and repurposed outputs,
+- a valid YouTube URL produces a transcript and detailed Substack article,
 - reruns do not duplicate prior work unnecessarily,
 - outputs are stored in a predictable, per-video folder structure,
 - the generated writing remains grounded in the transcript and avoids unsupported claims,

@@ -18,10 +18,8 @@ Pipeline:
         â”‚
         NO
         â†“
-    Gemini Repurposer
+    Gemini Substack Writer
         â†“
-    X thread
-    Reddit post
     Substack post
 
 The pipeline is resumable:
@@ -375,20 +373,24 @@ def find_existing_content(
     )
 
     required_files = [
-        content_dir / "x_thread.md",
-        content_dir / "reddit_post.md",
-        content_dir / "substack_post.md",
+        content_dir / "substack_post.txt",
         content_dir / "repurposed.json",
     ]
+    if not all(path.is_file() for path in required_files):
+        return None
 
-    if all(
-        path.exists()
-        for path in required_files
-    ):
+    data = load_json(required_files[1])
+    if not isinstance(data, dict):
+        return None
+    if not isinstance(data.get("substack_title"), str):
+        return None
+    if not isinstance(data.get("substack_content"), str):
+        return None
+    if "x_thread" in data or "reddit_title" in data or "reddit_body" in data:
+        return None
 
-        return content_dir
+    return content_dir
 
-    return None
 
 
 # ============================================================
@@ -764,19 +766,9 @@ def main():
     # FINAL OUTPUT
     # ========================================================
 
-    x_thread_path = (
-        existing_content /
-        "x_thread.md"
-    )
-
-    reddit_path = (
-        existing_content /
-        "reddit_post.md"
-    )
-
     substack_path = (
         existing_content /
-        "substack_post.md"
+        "substack_post.txt"
     )
 
     json_path = (
@@ -802,16 +794,6 @@ def main():
 
     print()
     print("Generated Content:")
-
-    print(
-        f"X Thread        : "
-        f"{x_thread_path}"
-    )
-
-    print(
-        f"Reddit Post     : "
-        f"{reddit_path}"
-    )
 
     print(
         f"Substack Post    : "
@@ -841,4 +823,8 @@ def main():
 
 
 if __name__ == "__main__":
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    if hasattr(sys.stderr, "reconfigure"):
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
     sys.exit(main() or ExitCode.SUCCESS)

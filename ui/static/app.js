@@ -1,7 +1,7 @@
 const $ = (selector) => document.querySelector(selector);
 const state = {
   jobs: [], library: [], settings: null, selectedKey: "", selectedJob: null,
-  preview: null, log: "", outputTab: "x_thread", pollTimer: null, previewSignature: "",
+  preview: null, log: "", pollTimer: null, previewSignature: "",
 };
 
 async function api(path, options = {}) {
@@ -197,35 +197,23 @@ function outputData() {
 function renderOutput() {
   const target = $("#output-content");
   const data = outputData();
-  const key = state.outputTab;
   if (!data) {
-    target.innerHTML = '<div class="review-placeholder"><span>✳</span><p>No publishing kit for this transcript yet.<br>Regenerate from transcript to create one.</p></div>';
+    target.innerHTML = '<div class="review-placeholder"><span>✳</span><p>No Substack article for this transcript yet.<br>Regenerate from transcript to create one.</p></div>';
     return;
   }
-  if (key === "x_thread") {
-    const tweets = Array.isArray(data.x_thread) ? data.x_thread : [];
-    if (!tweets.length) { target.innerHTML = '<p class="output-empty">No X thread was found in this output.</p>'; return; }
-    target.innerHTML = `<div class="content-actions"><button class="copy-button" data-copy="thread">Copy full thread</button></div>` + tweets.map((tweet, index) => {
-      const count = Array.from(tweet).length;
-      const warning = count > 270;
-      return `<article class="tweet-card ${warning ? "warning" : ""}"><div class="tweet-top"><span>${String(index + 1).padStart(2, "0")} <span class="tweet-total">/ ${String(tweets.length).padStart(2, "0")}</span></span><span class="tweet-count ${warning ? "warning" : ""}">${count}/270${warning ? " · over limit" : ""}</span><button class="copy-button" data-copy="tweet" data-index="${index}">Copy</button></div><div class="tweet-text">${escapeHtml(tweet)}</div></article>`;
-    }).join("");
-    return;
-  }
-  const isReddit = key === "reddit";
-  const title = isReddit ? data.reddit_title : data.substack_title;
-  const body = isReddit ? data.reddit_body : data.substack_content;
-  if (!body && !title) { target.innerHTML = '<p class="output-empty">This publishing format is not available in the selected output.</p>'; return; }
+  const title = data.substack_title;
+  const body = data.substack_content;
+  if (!body && !title) { target.innerHTML = '<p class="output-empty">The Substack article is not available in this output.</p>'; return; }
   const copyText = `${title ? `# ${title}\n\n` : ""}${body || ""}`;
-  target.innerHTML = `<div class="content-actions"><button class="copy-button" data-copy="full-output">Copy ${isReddit ? "Reddit post" : "Substack story"}</button></div><div class="markdown-body">${title ? `<h1>${markdownInline(title)}</h1>` : ""}${renderMarkdown(body)}</div>`;
-  target.querySelector("[data-copy='full-output']")?.addEventListener("click", () => copyToClipboard(copyText, "Post copied"));
+  target.innerHTML = `<div class="content-actions"><button class="copy-button" data-copy="full-output">Copy Substack article</button></div><div class="markdown-body">${title ? `<h1>${markdownInline(title)}</h1>` : ""}${renderMarkdown(body)}</div>`;
+  target.querySelector("[data-copy='full-output']")?.addEventListener("click", () => copyToClipboard(copyText, "Article copied"));
 }
 
 function renderFiles(files = []) {
   const list = $("#file-list"); list.replaceChildren();
   if (!files.length) {
     const empty = document.createElement("span"); empty.className = "muted-empty"; empty.textContent = "No files yet"; list.append(empty);
-    $("#files-caption").textContent = "Downloads appear when a transcript or publishing kit is ready.";
+    $("#files-caption").textContent = "Downloads appear when a transcript or article is ready.";
     return;
   }
   $("#files-caption").textContent = `${files.length} file${files.length === 1 ? "" : "s"} ready to download`;
@@ -404,20 +392,6 @@ function bindEvents() {
   $("#clear-url").addEventListener("click", () => { $("#video-url").value = ""; $("#clear-url").hidden = true; $("#video-url").focus(); });
   $("#video-url").addEventListener("input", (event) => { $("#clear-url").hidden = !event.target.value; setFormError(""); });
   $("#temperature").addEventListener("input", (event) => { $("#temperature-value").value = Number(event.target.value).toFixed(1); $("#temperature-value").textContent = Number(event.target.value).toFixed(1); });
-  document.querySelectorAll(".output-tab").forEach((tab) => tab.addEventListener("click", () => {
-    document.querySelectorAll(".output-tab").forEach((item) => item.classList.toggle("active", item === tab));
-    state.outputTab = tab.dataset.output; renderOutput();
-  }));
-  $("#output-content").addEventListener("click", (event) => {
-    if (event.target.closest("[data-copy='thread']")) {
-      copyToClipboard((outputData()?.x_thread || []).join("\n\n"), "Full thread copied");
-      return;
-    }
-    const button = event.target.closest("[data-copy='tweet']");
-    if (!button) return;
-    const tweets = outputData()?.x_thread || [];
-    copyToClipboard(tweets[Number(button.dataset.index)] || "", "Post copied");
-  });
 }
 
 bindEvents();

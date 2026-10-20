@@ -1,5 +1,18 @@
 # Changes log
 
+## 2026-10-20 — Substack-only generation
+
+- Replaced X and Reddit generation with a single detailed Substack article and transcript-length-based word targets.
+- Kept the structured article JSON for dashboard previews and removed obsolete X/Reddit review controls.
+- Detects previous multi-format output as stale and replaces it with Substack-only output on the next generation.
+- Disabled unused automatic function calling for the Gemini request to avoid the SDK's AFC warning.
+
+## 2026-10-20 — Text outputs and Windows console encoding
+
+- Saved generated X, Reddit, and Substack content to UTF-8 `.txt` files while retaining `repurposed.json` for structured dashboard previews.
+- Updated resumable content detection and final output paths to use the `.txt` files.
+- Configured CLI stdout and stderr to use UTF-8 so Unicode transcription banners work in Windows consoles.
+
 ## 2026-10-11 — Local dashboard
 
 - Added the loopback-only web dashboard in `ui/`, with a persistent sequential job runner, live stage/log updates, CPU/RAM sampling, and optional NVIDIA GPU telemetry.

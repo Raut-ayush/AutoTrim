@@ -1,6 +1,6 @@
 # AutoTrim
 
-AutoTrim is a Python-based workflow that turns a YouTube video into a reusable content package: transcript files, benchmark metadata, and repurposed outputs for X/Twitter, Reddit, and Substack. The project is built as a resumable pipeline so it can skip work that has already been done and continue from the latest valid stage.
+AutoTrim is a Python-based workflow that turns a YouTube video into transcript files, benchmark metadata, and a detailed Substack article. The project is built as a resumable pipeline so it can skip work that has already been done and continue from the latest valid stage.
 
 ## Key stats
 
@@ -21,4 +21,4 @@ AutoTrim is a Python-based workflow that turns a YouTube video into a reusable c
 
 ## Short summary
 
-This project sits in the creator-automation space: it takes a source video, downloads the audio, transcribes it with WhisperX, stores structured metadata, and then uses LLM-based repurposing to derive multiple publishing formats from the same transcript. The code is intentionally script-first and workflow-oriented rather than web-app-oriented, which makes it easy to run locally and reuse between videos.
+This project sits in the creator-automation space: it takes a source video, downloads the audio, transcribes it with WhisperX, stores structured metadata, and then uses an LLM to create one detailed Substack article from the transcript. The code is intentionally script-first and workflow-oriented rather than web-app-oriented, which makes it easy to run locally and reuse between videos.

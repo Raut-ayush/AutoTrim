@@ -19,7 +19,7 @@
 - [ ] Standardize versioning and release metadata across the project
 - [ ] Add a cleaner CLI UX with better status reporting and example commands
 - [ ] Consider packaging the project as a small installable tool or package
-- [ ] Consider adding optional support for more output formats beyond X/Reddit/Substack
+- [ ] Consider adding optional support for more output formats beyond Substack
 - [ ] Evaluate whether `content_formatter.py` should be integrated more deeply into the main pipeline
 - [ ] Review duplicate-folder handling and transcript reuse logic for edge cases
 - [ ] Document and verify the expected output directory structure for users
