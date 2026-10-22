@@ -507,6 +507,7 @@ def main():
         parser.error("--generation-retries must be between 1 and 10")
 
     project_dir = Path(__file__).parent
+    load_dotenv(project_dir / ".env")
 
     python_executable = sys.executable
 
@@ -609,7 +610,6 @@ def main():
         else None
     )
     if existing_content is None:
-        load_dotenv(project_dir / ".env")
         if not os.getenv(GEMINI_API_KEY_ENV):
             print(
                 f"ERROR: {GEMINI_API_KEY_ENV} is not set. Add it to "

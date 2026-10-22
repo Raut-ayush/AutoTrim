@@ -10,7 +10,53 @@ import time
 from datetime import datetime
 from pathlib import Path
 
+from dotenv import load_dotenv
 import psutil
+
+
+load_dotenv(Path(__file__).resolve().parent / ".env")
+
+
+_FFMPEG_DLL_DIRECTORY_HANDLES = []
+
+
+def configure_ffmpeg_dll_search() -> None:
+    """Expose optional Windows FFmpeg shared DLLs before TorchCodec is imported."""
+    if os.name != "nt":
+        return
+
+    configured_dir = os.getenv("AUTOTRIM_FFMPEG_DLL_DIR", "").strip()
+    if not configured_dir:
+        return
+
+    dll_dir = Path(configured_dir).expanduser().resolve()
+    if not dll_dir.is_dir():
+        print(
+            "AUTOTRIM_FFMPEG_DLL_DIR does not exist or is not a directory: "
+            f"{dll_dir}",
+            file=sys.stderr,
+        )
+        raise SystemExit(4)
+
+    missing = [
+        pattern for pattern in ("avcodec-*.dll", "avformat-*.dll", "avutil-*.dll")
+        if not list(dll_dir.glob(pattern))
+    ]
+    if missing:
+        print(
+            "AUTOTRIM_FFMPEG_DLL_DIR must point to the FFmpeg shared build's bin "
+            f"folder; missing {', '.join(missing)} in {dll_dir}",
+            file=sys.stderr,
+        )
+        raise SystemExit(4)
+
+    # Retain the handle for the lifetime of the process. Python 3.8+ on Windows
+    # does not use PATH alone to resolve dependent DLLs loaded by extensions.
+    _FFMPEG_DLL_DIRECTORY_HANDLES.append(os.add_dll_directory(str(dll_dir)))
+
+
+configure_ffmpeg_dll_search()
+
 import torch
 import whisperx
 from yt_dlp import YoutubeDL

@@ -29,6 +29,22 @@ python -m pip install -r requirements.txt
 
 Install FFmpeg and make its `bin` directory available on `PATH`. On Windows, for example, install it using `winget install Gyan.FFmpeg` or `choco install ffmpeg`, then open a new terminal. Verify with `ffmpeg -version`.
 
+### Windows TorchCodec shared libraries
+
+The project's current combination (PyTorch 2.8, TorchCodec 0.7, Python 3.13) is compatible, but TorchCodec also needs FFmpeg's **shared** DLL build. A normal/static FFmpeg install can provide `ffmpeg.exe` while still missing those DLLs. The warning from Pyannote is non-fatal for the current WhisperX path, but you can resolve it as follows:
+
+1. Download an FFmpeg 7 shared Windows build. [FFmpeg's download page](https://ffmpeg.org/download.html) links Windows builds; choose the `full_build-shared` package (for example, [Gyan's FFmpeg 7.1.1 shared release](https://github.com/GyanD/codexffmpeg/releases/download/7.1.1/ffmpeg-7.1.1-full_build-shared.zip)).
+2. Extract it somewhere stable, such as `D:\Tools\ffmpeg-7.1.1-full_build-shared`. Confirm its `bin` folder contains files like `avcodec-61.dll`, `avformat-61.dll`, and `avutil-59.dll`.
+3. Add this line to the project `.env`, using the actual extracted `bin` path:
+
+   ```text
+   AUTOTRIM_FFMPEG_DLL_DIR=D:\Tools\ffmpeg-7.1.1-full_build-shared\bin
+   ```
+
+4. Restart the dashboard or terminal and rerun transcription. AutoTrim adds this directory to the current Python process's DLL search path before loading PyTorch/WhisperX. The existing FFmpeg executable on `PATH` remains in use for yt-dlp audio extraction.
+
+Do not replace `torch` or `torchcodec` to address this warning: their installed versions match the project's supported Python/PyTorch combination. The shared FFmpeg DLLs are the missing piece.
+
 Create a local `.env` file and set your Gemini API key:
 
 ```powershell
